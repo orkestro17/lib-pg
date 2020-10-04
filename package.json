@@ -1,0 +1,12 @@
+{
+  "name": "@orkestro/lib-pg",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha"
+  },
+  "author": "Orkestro <developers@orkestro.com>",
+  "license": "ISC",
+  "dependencies": {}
+}
