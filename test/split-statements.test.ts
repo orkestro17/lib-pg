@@ -1,5 +1,5 @@
-const { deepStrictEqual: eq } = require("assert")
-const { splitSqlText } = require("./split-statements")
+import { deepStrictEqual as eq } from "assert";
+import { splitSqlText } from "../src/split-statements";
 
 const multiQuerySample = `
 -- Query 1:
@@ -25,38 +25,38 @@ create table three (
   int id
 )
 
-`
+`;
 
 describe("lib/sql/split-statements", () => {
   describe("splitSqlText", () => {
     it("splits and removes comments", () => {
-      const result = splitSqlText(multiQuerySample)
+      const result = splitSqlText(multiQuerySample);
 
-      eq(result.length, 4)
+      eq(result.length, 4);
 
       eq(result[0], {
         lineNo: 3,
         queryText: "create table one (id int);",
-        ignoreErrorCodes: []
-      })
+        ignoreErrorCodes: [],
+      });
 
       eq(result[1], {
         lineNo: 9,
         queryText: "create table two (\n  id int\n);",
-        ignoreErrorCodes: []
-      })
+        ignoreErrorCodes: [],
+      });
 
       eq(result[2], {
         lineNo: 16,
         queryText: "select 'ok'",
-        ignoreErrorCodes: ["1", "2", "3"]
-      })
+        ignoreErrorCodes: ["1", "2", "3"],
+      });
 
       eq(result[3], {
         lineNo: 20,
         queryText: "create table three (\n  int id\n)",
-        ignoreErrorCodes: []
-      })
-    })
-  })
-})
+        ignoreErrorCodes: [],
+      });
+    });
+  });
+});
