@@ -1,13 +1,16 @@
 const safeMarker = Symbol("Safe sql marker");
 
-export function sql(strings: TemplateStringsArray, ...args: any[]) {
+export function sql(
+  strings: TemplateStringsArray,
+  ...args: unknown[]
+): Pg.QueryConfig {
   let text = strings[0];
-  const values = [];
+  const values: unknown[] = [];
 
   args.forEach((val, i) => {
-    if (val && val[safeMarker]) {
+    if (val && isSafe(val)) {
       const offset = values.length;
-      text += val.text.replace(/\$\d+/g, (match) => {
+      text += val.text.replace(/\$\d+/g, (match: string) => {
         const j = parseInt(match.slice(1), 10);
         return "$" + (offset + j);
       });
@@ -32,12 +35,13 @@ sql.comma = function (values: unknown[]) {
   return values.reduce((a, b) => sql`${a}, ${b}`);
 };
 
-/**
- * @template T
- * @param {T} val
- * @returns T
- */
-function safe(val) {
-  val[safeMarker] = true;
+function isSafe(val: unknown): val is Pg.QueryConfig {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (val as any)[safeMarker] ? true : false;
+}
+
+function safe<T>(val: T): T {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (val as any)[safeMarker] = true;
   return val;
 }
