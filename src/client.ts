@@ -112,8 +112,41 @@ interface Logger {
   error(...args: unknown[]): void;
 }
 
+/**
+ * Gets config for pg.Client/pg.Pool from env Postgresql default env configuration variables (compatable with psql command)
+ */
+function getEnvConfig() {
+  const ca = process.env.PGSSLROOTCERT;
+  const key = process.env.PGSSLKEY;
+  const cert = process.env.PGSSLCERT;
+
+  return {
+    host: process.env.PGHOST || "127.0.0.1",
+    port: parseInt(process.env.PGPORT || "5432", 10),
+    user: process.env.PGUSER,
+    database: process.env.PGDATABASE,
+    password: process.env.PGPASSWORD,
+    max: parseInt(process.env.PG_MAX_POOL_SIZE || "10", 10),
+    min: parseInt(process.env.PG_MIN_POOL_SIZE || "2", 10),
+    ssl: ca
+      ? {
+          ca: readFileSync(ca).toString(),
+          key: key && readFileSync(key).toString(),
+          cert: cert && readFileSync(cert).toString(),
+        }
+      : undefined,
+  };
+}
+
+let defaultPool: pg.Pool;
+
 class PoolClient implements Lib.Sql.Client {
   constructor(private pool: pg.Pool, private logger: Logger) {}
+
+  static default(logger: Logger = console) {
+    defaultPool = defaultPool || new pg.Pool(getEnvConfig());
+    return new PoolClient(defaultPool, logger);
+  }
 
   run<T = unknown>(query: string | Pg.QueryConfig): Promise<T[]> {
     return runSql(query, this.pool, this.logger);
@@ -147,6 +180,12 @@ class Client implements Lib.Sql.Client {
     private pgClient: pg.ClientBase | pg.PoolClient,
     private logger: Logger
   ) {}
+
+  static default(logger: Logger = console) {
+    const config = getEnvConfig();
+    const pgClient = new pg.Client(config);
+    return new Client(pgClient, logger);
+  }
 
   run<T = unknown>(query: string | Pg.QueryConfig): Promise<T[]> {
     return runSql(query, this.pgClient, this.logger);
