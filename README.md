@@ -2,6 +2,11 @@
 
 Wrapper on package `pg` with helpers
 
+## TODO
+
+- fix tests
+- migrations script
+
 ## Connecting
 
 Setup env using `psql` compatible settings:
