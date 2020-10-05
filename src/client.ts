@@ -121,18 +121,13 @@ interface Logger {
   error(...args: unknown[]): void;
 }
 
-export abstract class Client {
-  abstract run<T = unknown>(query: string | Pg.QueryConfig): Promise<T[]>;
-  abstract transaction<T>(
-    name: string,
-    f: (db: Client) => Promise<T>
-  ): Promise<T>;
+export interface Client {
+  run<T = unknown>(query: string | Pg.QueryConfig): Promise<T[]>;
+  transaction<T>(name: string, f: (db: Client) => Promise<T>): Promise<T>;
 }
 
-export class PoolClient extends Client {
-  constructor(private pool: pg.Pool, private logger: Logger) {
-    super();
-  }
+export class PoolClient implements Client {
+  constructor(private pool: pg.Pool, private logger: Logger) {}
 
   run<T = unknown>(query: QueryConfig): Promise<T[]> {
     return this.checkoutClient((client) => client.run<T>(query));
@@ -164,10 +159,8 @@ export class PoolClient extends Client {
 /**
  * A client that was checked out from pool of clients.
  */
-class ActiveClient extends Client {
-  constructor(private pgClient: pg.ClientBase, private logger: Logger) {
-    super();
-  }
+class ActiveClient implements Client {
+  constructor(private pgClient: pg.ClientBase, private logger: Logger) {}
 
   run<T = unknown>(query: string | Pg.QueryConfig): Promise<T[]> {
     return run(query, this.pgClient, this.logger);
@@ -235,14 +228,12 @@ class ActiveClient extends Client {
  * Adds logging information about transaction,
  * implements transaction() as savepoint
  */
-class ActiveTransactionClient extends Client {
+class ActiveTransactionClient implements Client {
   constructor(
     private pgClient: pg.ClientBase,
     private logger: Logger,
     private txnId: string
-  ) {
-    super();
-  }
+  ) {}
 
   run<T = unknown>(query: string | Pg.QueryConfig): Promise<T[]> {
     return run(query, this.pgClient, this.logger);
