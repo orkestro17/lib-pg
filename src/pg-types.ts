@@ -1,12 +1,8 @@
 import pg from "pg";
 
-let initializePromise;
+let initializePromise: Promise<void>;
 
-/**
- *
- * @param {Pg.Client | Pg.Pool} client
- */
-async function initPgTypes(client) {
+export async function initPgTypes(client: pg.ClientBase | pg.Pool) {
   // Register enum arrays to be parsed as string arrays:
   // https://github.com/brianc/node-pg-types/issues/56
   const { rows } = await client.query(
@@ -17,18 +13,9 @@ async function initPgTypes(client) {
   }
 }
 
-/**
- *
- * @param {Pg.Client | Pg.Pool} client
- */
-async function initPgTypesOnce(client) {
+export async function initPgTypesOnce(client: pg.ClientBase | pg.Pool) {
   if (!initializePromise) {
     initializePromise = initPgTypes(client);
   }
   await initializePromise;
 }
-
-module.exports = {
-  initPgTypesOnce,
-  initPgTypes,
-};
