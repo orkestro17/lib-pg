@@ -7,7 +7,8 @@
     "lint": "eslint src test`",
     "lint:fix": "eslint src test --fix",
     "build": "tsc",
-    "test": "mocha"
+    "test": "mocha",
+    "postinstall": "tsc"
   },
   "author": "Orkestro <developers@orkestro.com>",
   "license": "ISC",
