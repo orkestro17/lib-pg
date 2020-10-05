@@ -71,7 +71,7 @@ class SqlError extends Error {
   }
 }
 
-async function getPgStats(client: Lib.Sql.Client) {
+export async function getPgStats(client: Lib.Sql.Client) {
   const maxConnections = await client.run(
     "SELECT * FROM pg_settings WHERE name = 'max_connections'"
   );
@@ -140,7 +140,7 @@ function getEnvConfig() {
 
 let defaultPool: pg.Pool;
 
-class PoolClient implements Lib.Sql.Client {
+export class PoolClient implements Lib.Sql.Client {
   constructor(private pool: pg.Pool, private logger: Logger) {}
 
   static default(logger: Logger = console) {
@@ -175,7 +175,7 @@ class PoolClient implements Lib.Sql.Client {
   }
 }
 
-class Client implements Lib.Sql.Client {
+export class Client implements Lib.Sql.Client {
   constructor(
     private pgClient: pg.ClientBase | pg.PoolClient,
     private logger: Logger
@@ -265,7 +265,7 @@ class Client implements Lib.Sql.Client {
   }
 }
 
-class TransactionClient implements Lib.Sql.Client {
+export class TransactionClient implements Lib.Sql.Client {
   constructor(
     private pgClient: pg.ClientBase,
     private logger: Logger,
@@ -313,11 +313,3 @@ class TransactionClient implements Lib.Sql.Client {
     }
   }
 }
-
-module.exports = {
-  connectionString: "",
-  getPgStats,
-  PoolClient,
-  Client,
-  TransactionClient,
-};
