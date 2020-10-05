@@ -22,25 +22,36 @@ PGDATABASE
 PGPASSWORD
 
 // additionally custom settings:
-PG_MAX_POOL_SIZE
-PG_MIN_POOL_SIZE
+PG_MAX_POOL_SIZE (default 10)
+PG_MIN_POOL_SIZE (default 2)
 ```
 
 ```js
-import { PoolClient } from "@orkestro/lib-pg";
+import { PoolClient, createPoolFromEnv } from "@orkestro/lib-pg";
 
-// will read config from env:
-const pool = PoolClient.default();
+// will read config from env and create pg.Pool instance
+const pool = createPoolFromEnv();
 
-pool.run('select "connected!"');
+const client = new PoolClient(pool, console);
+
+client.run('select "connected!"');
 ```
 
-## Executing queries
+**_Note:_** it's important to reuse `pg.Pool` instance, because it keeps track of open connections. PoolClient can be created any number of times on same pool.
 
-```
-import {sql} from "@orkestro/lib-pg"
+## Doing transactions
 
-pool.run(sql`select * from x`)
+```js
+client.transaction('transaction name', async client => {
+    await client.run(...)
+    await client.run(...)
+
+    // can be nested
+    client.transaction('sub transaction', async client => {
+        await client.run(...)
+        await client.run(...)
+    })
+})
 ```
 
 ## Writing queries
@@ -70,21 +81,6 @@ const insertAB = sql`
     b as ${insertB}
   select * FROM a, b
 `;
-```
-
-## Doing transactions
-
-```js
-pool.transaction('transaction name', async client => {
-    await client.run(...)
-    await client.run(...)
-
-    // can be nested
-    client.transaction('sub transaction', async client => {
-        await client.run(...)
-        await client.run(...)
-    })
-})
 ```
 
 ## Writing tests that use postgresql

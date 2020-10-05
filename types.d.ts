@@ -7,18 +7,6 @@ declare namespace Pg {
   export type Client = import("pg").ClientBase;
 }
 
-declare namespace Lib {
-  namespace Sql {
-    export interface Client {
-      run: (query: Pg.QueryConfig | string) => Promise<any[]>;
-      transaction: <T>(
-        name: string,
-        f: (db: Client) => Promise<T>
-      ) => Promise<T>;
-    }
-  }
-}
-
 declare namespace SqlSchema {
   // placeholder for schema interfaces
 

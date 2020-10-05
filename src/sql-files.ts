@@ -1,12 +1,16 @@
+import * as glob from "glob";
+import { readFileSync } from "fs";
+import { QueryConfig } from "pg";
+
 /**
  * Split slq content containing multiple queries.
  * Comment's must be present separating multiple queries.
  */
-export function splitSqlText(queryText: string) {
+export function splitSqlText(queryText: string): QueryConfig[] {
   const lines = queryText.split(/\n\r?/gm);
 
   const queries: {
-    queryText: string;
+    text: string;
     lineNo: number;
     ignoreErrorCodes: string[];
   }[] = [];
@@ -39,11 +43,11 @@ export function splitSqlText(queryText: string) {
         if (wasInTopLevelComment) {
           queries.push({
             lineNo: i + 1,
-            queryText: line,
+            text: line,
             ignoreErrorCodes: ignoreErrorCodes.splice(0),
           });
         } else {
-          queries[queries.length - 1].queryText += "\n" + line;
+          queries[queries.length - 1].text += "\n" + line;
         }
       }
 
@@ -51,5 +55,20 @@ export function splitSqlText(queryText: string) {
     }
   });
 
-  return queries.filter((query) => query.queryText.trim());
+  return queries.filter((query) => query.text.trim());
+}
+
+export function readSqlFileSync(fileName: string): QueryConfig[] {
+  const content = readFileSync(fileName).toString();
+  return splitSqlText(content);
+}
+
+export function readSqlFilesInDirSync(...directories: string[]): QueryConfig[] {
+  const queries: QueryConfig[] = [];
+  for (const arg of directories) {
+    for (const f of glob.sync(arg)) {
+      queries.push(...readSqlFileSync(f));
+    }
+  }
+  return queries;
 }
