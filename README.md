@@ -22,20 +22,22 @@ PGDATABASE
 PGPASSWORD
 
 // additionally custom settings:
-PG_MAX_POOL_SIZE
-PG_MIN_POOL_SIZE
+PG_MAX_POOL_SIZE (default 10)
+PG_MIN_POOL_SIZE (default 2)
 ```
 
 ```js
 import { PoolClient, createPoolFromEnv } from "@orkestro/lib-pg";
 
-// will read config from env:
+// will read config from env and create pg.Pool instance
 const pool = createPoolFromEnv();
 
 const client = new PoolClient(pool, console);
 
 client.run('select "connected!"');
 ```
+
+**_Note:_** it's important to reuse `pg.Pool` instance, because it keeps track of open connections. PoolClient can be created any number of times on same pool.
 
 ## Doing transactions
 
