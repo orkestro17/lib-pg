@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "",
   "main": "dist/index.js",
-  "types": "types.d.ts",
   "scripts": {
     "lint": "eslint src test`",
     "lint:fix": "eslint src test --fix",
