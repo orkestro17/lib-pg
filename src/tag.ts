@@ -1,9 +1,11 @@
+import { QueryConfig } from "./types";
+
 const safeMarker = Symbol("Safe sql marker");
 
 export function sql(
   strings: TemplateStringsArray,
   ...args: unknown[]
-): Pg.QueryConfig {
+): QueryConfig {
   let text = strings[0];
   const values: unknown[] = [];
 
@@ -35,7 +37,7 @@ sql.comma = function (values: unknown[]) {
   return values.reduce((a, b) => sql`${a}, ${b}`);
 };
 
-function isSafe(val: unknown): val is Pg.QueryConfig {
+function isSafe(val: unknown): val is QueryConfig {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return (val as any)[safeMarker] ? true : false;
 }

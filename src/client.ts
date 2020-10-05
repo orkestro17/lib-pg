@@ -1,18 +1,17 @@
-import Glob from "fast-glob";
 import pg from "pg";
 import { v1 as uuid } from "uuid";
 import { readFileSync } from "fs";
-import { splitSqlText } from "./split-statements";
 import { sql } from "./tag";
 import * as pgTypes from "./pg-types";
+import { QueryConfig } from "./types";
 
 // This can be used to inspect or report number of queries/transactions that are queued up. Number getting high will indicate issue.
-let queuedQueries = 0;
-let activeTransactions = 0;
+let queuedProcessQueries = 0;
+let activeProcessTransactions = 0;
 
-async function runSql<T>(
+async function run<T>(
   queryConfig: string | Pg.QueryConfig,
-  pgClient: pg.ClientBase | pg.Pool,
+  pgClient: pg.ClientBase,
   logger: Logger
 ): Promise<T[]> {
   const { stack: initialStack } = new Error("Query failed");
@@ -21,14 +20,14 @@ async function runSql<T>(
 
   const startTime = Date.now();
 
-  queuedQueries++;
+  queuedProcessQueries++;
 
   const [error, result] = await pgClient
     .query(queryConfig)
     .then((result) => [null, result])
     .catch((error) => [error, null]);
 
-  queuedQueries--;
+  queuedProcessQueries--;
 
   const { command, rowCount } = result || {};
   const duration = Date.now() - startTime;
@@ -39,7 +38,7 @@ async function runSql<T>(
     `Query(${label}): ` +
     (error ? `failed (${error.code})` : `${command} ${rowCount}`);
 
-  logger.info(logMessage, { duration, queuedQueries });
+  logger.info(logMessage, { duration, queuedQueries: queuedProcessQueries });
 
   if (result) {
     return result.rows;
@@ -71,7 +70,17 @@ class SqlError extends Error {
   }
 }
 
-export async function getPgStats(client: Lib.Sql.Client) {
+interface Stats {
+  maxConnections: unknown;
+  pgStatActivity: unknown;
+  pgStatDatabase: unknown;
+  pgConnectionsStatus: unknown;
+  pgActiveConnections: number;
+  activeProcessTransactions: number;
+  queuedProcessQueries: number;
+}
+
+export async function getPgStats(client: Client): Promise<Stats> {
   const maxConnections = await client.run(
     "SELECT * FROM pg_settings WHERE name = 'max_connections'"
   );
@@ -81,7 +90,7 @@ export async function getPgStats(client: Lib.Sql.Client) {
   const pgStatDatabase = await client.run(
     `SELECT * FROM pg_stat_database where datname = current_database()`
   );
-  const pgActiveConnections = await client.run(
+  const [{ sum: pgActiveConnections }] = await client.run<{ sum: number }>(
     "SELECT sum(numbackends) FROM pg_stat_database"
   );
   const pgConnectionsStatus = await client.run(`
@@ -102,8 +111,8 @@ export async function getPgStats(client: Lib.Sql.Client) {
     pgStatDatabase,
     pgConnectionsStatus,
     pgActiveConnections,
-    activeTransactions,
-    queuedQueries,
+    activeProcessTransactions,
+    queuedProcessQueries,
   };
 }
 
@@ -140,23 +149,33 @@ function getEnvConfig() {
 
 let defaultPool: pg.Pool;
 
-export class PoolClient implements Lib.Sql.Client {
-  constructor(private pool: pg.Pool, private logger: Logger) {}
+export abstract class Client {
+  abstract run<T = unknown>(query: string | Pg.QueryConfig): Promise<T[]>;
+  abstract transaction<T>(
+    name: string,
+    f: (db: Client) => Promise<T>
+  ): Promise<T>;
+}
 
-  static default(logger: Logger = console) {
+export class PoolClient extends Client {
+  constructor(private pool: pg.Pool, private logger: Logger) {
+    super();
+  }
+
+  static default(logger: Logger = console): PoolClient {
     defaultPool = defaultPool || new pg.Pool(getEnvConfig());
     return new PoolClient(defaultPool, logger);
   }
 
-  run<T = unknown>(query: string | Pg.QueryConfig): Promise<T[]> {
-    return runSql(query, this.pool, this.logger);
+  run<T = unknown>(query: QueryConfig): Promise<T[]> {
+    return this.checkoutClient((client) => client.run<T>(query));
   }
 
-  async checkoutClient<T = unknown>(
+  private async checkoutClient<T = unknown>(
     f: (client: Client) => Promise<T>
   ): Promise<T> {
     const pgClient = await this.pool.connect();
-    const client = new Client(pgClient, this.logger);
+    const client = new ActiveClient(pgClient, this.logger);
 
     try {
       return await f(client);
@@ -167,7 +186,7 @@ export class PoolClient implements Lib.Sql.Client {
 
   async transaction<T>(
     transactionName: string,
-    f: (db: Lib.Sql.Client) => Promise<T>
+    f: (db: Client) => Promise<T>
   ): Promise<T> {
     return this.checkoutClient((client) =>
       client.transaction(transactionName, f)
@@ -175,32 +194,28 @@ export class PoolClient implements Lib.Sql.Client {
   }
 }
 
-export class Client implements Lib.Sql.Client {
-  constructor(
-    private pgClient: pg.ClientBase | pg.PoolClient,
-    private logger: Logger
-  ) {}
-
-  static default(logger: Logger = console) {
-    const config = getEnvConfig();
-    const pgClient = new pg.Client(config);
-    return new Client(pgClient, logger);
+/**
+ * A client that was checked out from pool of clients.
+ */
+class ActiveClient extends Client {
+  constructor(private pgClient: pg.ClientBase, private logger: Logger) {
+    super();
   }
 
   run<T = unknown>(query: string | Pg.QueryConfig): Promise<T[]> {
-    return runSql(query, this.pgClient, this.logger);
+    return run(query, this.pgClient, this.logger);
   }
 
   async transaction<T>(
     transactionName: string,
-    f: (db: Lib.Sql.Client) => Promise<T>
+    f: (db: Client) => Promise<T>
   ): Promise<T> {
     const { pgClient } = this;
     const txnId = uuid();
     const transactionFail = new Error(`Transaction ${transactionName} failed`);
     const start = Date.now();
-    activeTransactions++;
-    const transactionClient = new TransactionClient(
+    activeProcessTransactions++;
+    const transactionClient = new ActiveTransactionClient(
       pgClient,
       this.logger,
       txnId
@@ -209,7 +224,7 @@ export class Client implements Lib.Sql.Client {
     this.logger.info(
       `[txn: ${txnId}] Starting transaction ${transactionName}`,
       {
-        activeTransactions,
+        activeTransactions: activeProcessTransactions,
       }
     );
 
@@ -242,43 +257,33 @@ export class Client implements Lib.Sql.Client {
           throw error;
         });
     } finally {
-      activeTransactions--;
-    }
-  }
-
-  async runFile(fileName: string) {
-    const content = readFileSync(fileName).toString();
-    for (const row of splitSqlText(content)) {
-      await this.run({
-        text: row.queryText,
-        ignoreErrorCodes: row.ignoreErrorCodes,
-      });
-    }
-  }
-
-  async runFilesIn(...directories: string[]) {
-    for (const arg of directories) {
-      for (const f of await Glob(arg)) {
-        await this.runFile(f);
-      }
+      activeProcessTransactions--;
     }
   }
 }
 
-export class TransactionClient implements Lib.Sql.Client {
+/**
+ * Client that is used when transaction is opened.
+ *
+ * Adds logging information about transaction,
+ * implements transaction() as savepoint
+ */
+class ActiveTransactionClient extends Client {
   constructor(
     private pgClient: pg.ClientBase,
     private logger: Logger,
     private txnId: string
-  ) {}
+  ) {
+    super();
+  }
 
   run<T = unknown>(query: string | Pg.QueryConfig): Promise<T[]> {
-    return runSql(query, this.pgClient, this.logger);
+    return run(query, this.pgClient, this.logger);
   }
 
   async transaction<T>(
     transactionName: string,
-    f: (client: Lib.Sql.Client) => T | Promise<T>
+    f: (client: Client) => T | Promise<T>
   ): Promise<T> {
     // support for nested transactions with save points
     const { txnId } = this;

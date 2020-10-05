@@ -2,7 +2,7 @@ import pg from "pg";
 
 let initializePromise: Promise<void>;
 
-export async function initPgTypes(client: pg.ClientBase | pg.Pool) {
+export async function initPgTypes(client: pg.ClientBase): Promise<void> {
   // Register enum arrays to be parsed as string arrays:
   // https://github.com/brianc/node-pg-types/issues/56
   const { rows } = await client.query(
@@ -13,7 +13,7 @@ export async function initPgTypes(client: pg.ClientBase | pg.Pool) {
   }
 }
 
-export async function initPgTypesOnce(client: pg.ClientBase | pg.Pool) {
+export async function initPgTypesOnce(client: pg.ClientBase): Promise<void> {
   if (!initializePromise) {
     initializePromise = initPgTypes(client);
   }
