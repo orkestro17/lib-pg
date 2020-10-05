@@ -27,20 +27,29 @@ PG_MIN_POOL_SIZE
 ```
 
 ```js
-import { PoolClient } from "@orkestro/lib-pg";
+import { PoolClient, createPoolFromEnv } from "@orkestro/lib-pg";
 
 // will read config from env:
-const pool = PoolClient.default();
+const pool = createPoolFromEnv();
 
-pool.run('select "connected!"');
+const client = new PoolClient(pool, console);
+
+client.run('select "connected!"');
 ```
 
-## Executing queries
+## Doing transactions
 
-```
-import {sql} from "@orkestro/lib-pg"
+```js
+client.transaction('transaction name', async client => {
+    await client.run(...)
+    await client.run(...)
 
-pool.run(sql`select * from x`)
+    // can be nested
+    client.transaction('sub transaction', async client => {
+        await client.run(...)
+        await client.run(...)
+    })
+})
 ```
 
 ## Writing queries
@@ -70,21 +79,6 @@ const insertAB = sql`
     b as ${insertB}
   select * FROM a, b
 `;
-```
-
-## Doing transactions
-
-```js
-pool.transaction('transaction name', async client => {
-    await client.run(...)
-    await client.run(...)
-
-    // can be nested
-    client.transaction('sub transaction', async client => {
-        await client.run(...)
-        await client.run(...)
-    })
-})
 ```
 
 ## Writing tests that use postgresql
