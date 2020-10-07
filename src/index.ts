@@ -1,6 +1,7 @@
-export * from "./tag";
-export * from "./client";
-export * from "./insert";
-export * from "./pg-pool";
+export { getConfigFromEnv } from "./config";
+export { sql } from "./tag";
+export { PoolClient, Client, getPgStats } from "./client";
+export { insert } from "./insert";
+export { migrateSchema } from "./migration";
 export { readSqlFileSync, readSqlFilesInDirSync } from "./sql-files";
 export { QueryConfig } from "./types";
