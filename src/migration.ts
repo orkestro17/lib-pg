@@ -50,19 +50,26 @@ function validateState(
     const onDisk = diskMigrations[i];
     const onDb = records[i];
 
-    if (!onDb) break;
-
     if (!onDisk) {
       throw new Error(`Database migration ${onDb.name} is not on disk`);
     }
-    if (onDb.name !== onDisk.name) {
+    if (onDb && onDb.name !== onDisk.name) {
       throw new Error(
-        `Found migration ${onDisk.name} on disk unexpected migration ${onDb.name} was found on database`
+        `Found migration ${onDisk.name} on disk, but a different migration ${onDb.name} was found on database`
       );
     }
-    if (onDb.hash !== onDisk.hash) {
+    if (onDb && onDb.hash !== onDisk.hash) {
       throw new Error(
-        `Migration hash don't match (${onDisk.name}) - did file changed?`
+        `Migration hash don't match (${onDisk.name}) - was file modified?`
+      );
+    }
+    // ensure migration name starts with NNN_
+    const expectStartWith = (1000 + i + 1).toFixed().slice(1) + "_";
+    if (!onDisk.name.startsWith(expectStartWith)) {
+      throw new Error(
+        `Found #${i + 1} migration named ${
+          onDisk.name
+        }, but name should start with ${expectStartWith}`
       );
     }
   }
@@ -122,9 +129,6 @@ class DiskMigration {
 
     for (const fileName of files) {
       if (/\.sql/.test(fileName)) {
-        if (!/\d\d\d_/.test(fileName)) {
-          throw new Error("File name should be in format 000_name.sql");
-        }
         migrations.push(new DiskMigration(location, fileName));
       }
     }
