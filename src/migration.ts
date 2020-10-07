@@ -22,6 +22,8 @@ export async function migrateSchema(
     await acquireLock(client);
 
     const migrationsLog = new MigrationsLog(client, tableName);
+    await migrationsLog.initSchema();
+
     const pastMigrations = await migrationsLog.getPastMigrations();
     const diskMigrations = DiskMigration.readFromFolder(folderLocation);
 
@@ -52,33 +54,36 @@ export function validateState(
   diskMigrations: MigrationRecord[],
   dbRecords: MigrationRecord[]
 ): void {
-  for (let i = 0; i < Math.max(diskMigrations.length, dbRecords.length); i++) {
-    const onDisk = diskMigrations[i];
-    const onDb = dbRecords[i];
+  let seqNum = 0;
 
-    if (!onDisk) {
-      throw new Error(`Database migration ${onDb.name} is not on disk`);
-    }
+  for (const onDisk of diskMigrations) {
+    const onDb = dbRecords.find(
+      (row) => row.name.slice(0, 3) === onDisk.name.slice(0, 3)
+    );
+
     if (onDb && onDb.name !== onDisk.name) {
       throw new Error(
-        `Found migration ${onDisk.name} on disk, but a different migration ${onDb.name} was found on database`
+        `in migration ${onDisk.name}: name not consistent with previously logged of same index (${onDb.name})`
       );
     }
     if (onDb && onDb.hash !== onDisk.hash) {
       throw new Error(
-        `Migration hash don't match (${onDisk.name}) - was file modified?`
+        `in migration ${onDisk.name}: content hash was not consistent with previously logged migration`
       );
     }
     // ensure migration name starts with NNN_
-    const expectStartWith = (1000 + i + 1).toFixed().slice(1) + "_";
-    if (!onDisk.name.startsWith(expectStartWith)) {
+    seqNum++;
+    const expectedPrefix = addPadding(seqNum) + "_";
+    if (!onDisk.name.startsWith(expectedPrefix)) {
       throw new Error(
-        `Found #${i + 1} migration named ${
-          onDisk.name
-        }, but name should start with ${expectStartWith}`
+        `in migration ${onDisk.name}: prefix should match sequence number of migration (${expectedPrefix})`
       );
     }
   }
+}
+
+function addPadding(seqNum: number) {
+  return (1000 + seqNum).toFixed().slice(1);
 }
 
 /**

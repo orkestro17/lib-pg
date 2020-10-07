@@ -14,18 +14,16 @@ describe("migration", () => {
         tableName: "test_schema_migrations",
       },
     };
-    const client = new Client(config);
+    let client: Client;
 
-    before(async () => {
+    beforeEach(async () => {
+      client = new Client(config);
       await client.connect();
-    });
-
-    afterEach(async () => {
       await client.query(sql`drop table if exists test_schema_migrations`);
       await client.query(sql`drop table if exists test_table`);
     });
 
-    after(() => {
+    afterEach(() => {
       client.end();
     });
 
@@ -80,15 +78,8 @@ describe("migration", () => {
         );
 
       expect(act).throws(
-        "Found #2 migration named 003_two.sql, but name should start with 002_"
+        "in migration 003_two.sql: prefix should match sequence number of migration (002_)"
       );
-    });
-
-    it("error when record exists on database but not on disk", () => {
-      const act = () =>
-        migration.validateState([], [{ name: "001_one.sql", hash: "1" }]);
-
-      expect(act).throws("Database migration 001_one.sql is not on disk");
     });
 
     it("error when there are differently named migrations on disk and database", () => {
@@ -99,7 +90,7 @@ describe("migration", () => {
         );
 
       expect(act).throws(
-        "Found migration 001_disk.sql on disk, but a different migration 001_db.sql was found on database"
+        "in migration 001_disk.sql: name not consistent with previously logged of same index (001_db.sql)"
       );
     });
 
@@ -111,7 +102,7 @@ describe("migration", () => {
         );
 
       expect(act).throws(
-        "Migration hash don't match (001_one.sql) - was file modified?"
+        "in migration 001_one.sql: content hash was not consistent with previously logged migration"
       );
     });
 
