@@ -125,6 +125,10 @@ interface MigrationRecord {
   created_at: Date;
 }
 
+interface PgError extends Error {
+  code: string;
+}
+
 class DiskMigration {
   constructor(public location: string, public name: string) {}
 
@@ -169,10 +173,12 @@ class DiskMigration {
       try {
         await client.query(query.text);
       } catch (e) {
-        logger.error(
-          `Migration ${this.name}:${query.lineNo} failed: ${e.message}`
-        );
+        throw new Error(this.formatError(this.filePath, query.lineNo, e));
       }
     }
+  }
+
+  private formatError(name: string, lineNo: number, e: PgError) {
+    return `Migration ${name}:${lineNo} failed: [code ${e.code}] ${e.message}`;
   }
 }

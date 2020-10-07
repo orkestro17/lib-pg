@@ -1,7 +1,73 @@
 import { expect } from "chai";
 import * as migration from "../src/migration";
+import { getConfigFromEnv } from "../src/config";
+import { Client } from "pg";
+import { DatabaseOptions } from "../src/types";
+import { sql } from "../src/tag";
 
 describe("migration", () => {
+  describe("end-to-end", () => {
+    const config: DatabaseOptions = {
+      ...getConfigFromEnv(process.env),
+      migrations: {
+        folderLocation: "test/migrations",
+        tableName: "test_schema_migrations",
+      },
+    };
+    const client = new Client(config);
+
+    before(async () => {
+      await client.connect();
+    });
+
+    afterEach(async () => {
+      await client.query(sql`drop table if exists test_schema_migrations`);
+      await client.query(sql`drop table if exists test_table`);
+    });
+
+    after(() => {
+      client.end();
+    });
+
+    it("successfully runs migrations", async () => {
+      await migration.migrateSchema(console, config);
+
+      const { rows: testTableData } = await client.query(
+        sql`select * from test_table order by name`
+      );
+
+      const { rows: migrationsData } = await client.query(
+        sql`select name from test_schema_migrations order by name`
+      );
+
+      expect(testTableData).to.eql([{ id: 1, name: "Test" }]);
+
+      expect(migrationsData).to.eql([
+        {
+          name: "001_create_table.sql",
+        },
+        {
+          name: "002_insert_record.sql",
+        },
+      ]);
+    });
+
+    it("successfully runs migration, when executed in parallel", async () => {
+      await Promise.all([
+        migration.migrateSchema(console, config),
+        migration.migrateSchema(console, config),
+        migration.migrateSchema(console, config),
+        migration.migrateSchema(console, config),
+      ]);
+
+      const { rows: testTableData } = await client.query(
+        sql`select * from test_table order by name`
+      );
+
+      expect(testTableData).to.eql([{ id: 1, name: "Test" }]);
+    });
+  });
+
   describe("validation", () => {
     it("error when name does not follow expected order", () => {
       const act = () =>
