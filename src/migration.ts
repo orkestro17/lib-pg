@@ -42,13 +42,13 @@ export async function migrateSchema(
   }
 }
 
-function validateState(
-  diskMigrations: DiskMigration[],
-  records: MigrationRecord[]
-) {
-  for (let i = 0; i < Math.max(diskMigrations.length, records.length); i++) {
+export function validateState(
+  diskMigrations: MigrationIdentity[],
+  dbRecords: MigrationIdentity[]
+): void {
+  for (let i = 0; i < Math.max(diskMigrations.length, dbRecords.length); i++) {
     const onDisk = diskMigrations[i];
-    const onDb = records[i];
+    const onDb = dbRecords[i];
 
     if (!onDisk) {
       throw new Error(`Database migration ${onDb.name} is not on disk`);
@@ -112,6 +112,11 @@ class MigrationsDb {
         ${record.hash}
       )`);
   }
+}
+
+interface MigrationIdentity {
+  name: string;
+  hash: string;
 }
 
 interface MigrationRecord {
