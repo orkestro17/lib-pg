@@ -11,30 +11,30 @@ export async function migrateSchema(
   options: DatabaseOptions
 ): Promise<void> {
   const { folderLocation, tableName } = options.migrations;
-  const diskMigrations = DiskMigration.readFromFolder(folderLocation);
+
   const client = new Client(options);
-  const repository = new MigrationsDb(client, tableName);
 
   client.on("error", (e) => logger.error(e));
 
   await client.connect();
 
   try {
-    await repository.acquireLock();
-    await repository.init();
+    await acquireLock(client);
 
-    const records = await repository.all();
+    const migrationsLog = new MigrationsLog(client, tableName);
+    const pastMigrations = await migrationsLog.getPastMigrations();
+    const diskMigrations = DiskMigration.readFromFolder(folderLocation);
 
-    validateState(diskMigrations, records);
+    validateState(diskMigrations, pastMigrations);
 
     for (const migration of diskMigrations) {
-      const record = records.find((row) => row.name === migration.name);
+      const record = pastMigrations.find((row) => row.name === migration.name);
 
       if (record) {
         logger.info(`Skipping migration ${migration.name} - already migrated`);
       } else {
         await migration.run(client, logger);
-        await repository.insert({ name: migration.name, hash: migration.hash });
+        await migrationsLog.insert(migration);
       }
     }
   } finally {
@@ -42,9 +42,15 @@ export async function migrateSchema(
   }
 }
 
+async function acquireLock(client: Client) {
+  // random number was chosen in range [1..max int]
+  // to ensure it does not conflict with any other pg_advisory_lock
+  await client.query(`select pg_advisory_lock(961082034)`);
+}
+
 export function validateState(
-  diskMigrations: MigrationIdentity[],
-  dbRecords: MigrationIdentity[]
+  diskMigrations: MigrationRecord[],
+  dbRecords: MigrationRecord[]
 ): void {
   for (let i = 0; i < Math.max(diskMigrations.length, dbRecords.length); i++) {
     const onDisk = diskMigrations[i];
@@ -75,22 +81,19 @@ export function validateState(
   }
 }
 
-class MigrationsDb {
+/**
+ * Data access object for migration logs
+ */
+class MigrationsLog {
   constructor(private client: Client, private tableName: string) {}
 
-  async acquireLock() {
-    // random number was chosen in range [1..max int]
-    // to ensure it does not conflict with any other pg_advisory_lock
-    await this.client.query(`select pg_advisory_lock(961082034)`);
-  }
-
-  private get tableIdentifier() {
+  private get tableNameSql() {
     return sql.id(this.tableName);
   }
 
-  async init() {
+  async initSchema() {
     await this.client.query(sql`
-      create table if not exists ${this.tableIdentifier} (
+      create table if not exists ${this.tableNameSql} (
         name text primary key,
         hash text,
         created_at timestamp default current_timestamp
@@ -98,38 +101,32 @@ class MigrationsDb {
   `);
   }
 
-  async all(): Promise<MigrationRecord[]> {
+  async getPastMigrations(): Promise<MigrationRecord[]> {
     const { rows } = await this.client.query(
-      sql`select * from ${this.tableIdentifier} order by name`
+      sql`select name, hash from ${this.tableNameSql} order by name`
     );
     return rows;
   }
 
-  async insert(record: Omit<MigrationRecord, "created_at">) {
+  async insert(record: MigrationRecord) {
     await this.client
-      .query(sql`insert into ${this.tableIdentifier} (name, hash) values (
+      .query(sql`insert into ${this.tableNameSql} (name, hash) values (
         ${record.name},
         ${record.hash}
       )`);
   }
 }
 
-interface MigrationIdentity {
-  name: string;
-  hash: string;
-}
-
 interface MigrationRecord {
   name: string;
   hash: string;
-  created_at: Date;
 }
 
 interface PgError extends Error {
   code: string;
 }
 
-class DiskMigration {
+class DiskMigration implements MigrationRecord {
   constructor(public location: string, public name: string) {}
 
   static readFromFolder(location: string): DiskMigration[] {
