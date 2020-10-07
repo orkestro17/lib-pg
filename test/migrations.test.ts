@@ -78,7 +78,7 @@ describe("migration", () => {
         );
 
       expect(act).throws(
-        "in migration 003_two.sql: prefix should match sequence number of migration (002_)"
+        "migration 003_two.sql: prefix should match sequence number of migration (002_)"
       );
     });
 
@@ -90,7 +90,7 @@ describe("migration", () => {
         );
 
       expect(act).throws(
-        "in migration 001_disk.sql: name not consistent with previously logged of same index (001_db.sql)"
+        "migration 001_disk.sql: name did not matched previously logged migration (001_db.sql)"
       );
     });
 
@@ -102,7 +102,7 @@ describe("migration", () => {
         );
 
       expect(act).throws(
-        "in migration 001_one.sql: content hash was not consistent with previously logged migration"
+        "migration 001_one.sql: content of migration did not match previously logged migration"
       );
     });
 

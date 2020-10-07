@@ -56,27 +56,27 @@ export function validateState(
 ): void {
   let seqNum = 0;
 
-  for (const onDisk of diskMigrations) {
+  for (const { name, hash } of diskMigrations) {
     const onDb = dbRecords.find(
-      (row) => row.name.slice(0, 3) === onDisk.name.slice(0, 3)
+      (row) => row.name.slice(0, 3) === name.slice(0, 3)
     );
 
-    if (onDb && onDb.name !== onDisk.name) {
-      throw new Error(
-        `in migration ${onDisk.name}: name not consistent with previously logged of same index (${onDb.name})`
-      );
-    }
-    if (onDb && onDb.hash !== onDisk.hash) {
-      throw new Error(
-        `in migration ${onDisk.name}: content hash was not consistent with previously logged migration`
-      );
-    }
     // ensure migration name starts with NNN_
     seqNum++;
     const expectedPrefix = addPadding(seqNum) + "_";
-    if (!onDisk.name.startsWith(expectedPrefix)) {
+    if (!name.startsWith(expectedPrefix)) {
       throw new Error(
-        `in migration ${onDisk.name}: prefix should match sequence number of migration (${expectedPrefix})`
+        `migration ${name}: prefix should match sequence number of migration (${expectedPrefix})`
+      );
+    }
+    if (onDb && onDb.name !== name) {
+      throw new Error(
+        `migration ${name}: name did not matched previously logged migration (${onDb.name})`
+      );
+    }
+    if (onDb && onDb.hash !== hash) {
+      throw new Error(
+        `migration ${name}: content of migration did not match previously logged migration`
       );
     }
   }
