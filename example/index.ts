@@ -1,9 +1,13 @@
 import { PoolClient, createPoolFromEnv, sql } from "@orkestro/lib-pg";
+import { runMigrations } from "@orkestro/lib-pg/src/migration";
 
 async function main() {
   const pool = createPoolFromEnv();
   try {
     const client = new PoolClient(pool, console);
+
+    // run migrations
+    await runMigrations(client, "migrations", console);
 
     // regular query
     const results = await client.run(sql`select ${"Sample query"}`);
