@@ -25,19 +25,13 @@ export async function migrateSchema(
 
     const records = await repository.all();
 
+    validateState(diskMigrations, records);
+
     for (const migration of diskMigrations) {
       const record = records.find((row) => row.name === migration.name);
 
       if (record) {
-        if (record.hash !== migration.hash) {
-          throw new Error(
-            `Migration ${record.name} hash does not match, was migration file modified?`
-          );
-        } else {
-          logger.info(
-            `Skipping migration ${migration.name} - already migrated`
-          );
-        }
+        logger.info(`Skipping migration ${migration.name} - already migrated`);
       } else {
         await migration.run(client, logger);
         await repository.insert({ name: migration.name, hash: migration.hash });
@@ -45,6 +39,32 @@ export async function migrateSchema(
     }
   } finally {
     client.end();
+  }
+}
+
+function validateState(
+  diskMigrations: DiskMigration[],
+  records: MigrationRecord[]
+) {
+  for (let i = 0; i < Math.max(diskMigrations.length, records.length); i++) {
+    const onDisk = diskMigrations[i];
+    const onDb = records[i];
+
+    if (!onDb) break;
+
+    if (!onDisk) {
+      throw new Error(`Database migration ${onDb.name} is not on disk`);
+    }
+    if (onDb.name !== onDisk.name) {
+      throw new Error(
+        `Found migration ${onDisk.name} on disk unexpected migration ${onDb.name} was found on database`
+      );
+    }
+    if (onDb.hash !== onDisk.hash) {
+      throw new Error(
+        `Migration hash don't match (${onDisk.name}) - did file changed?`
+      );
+    }
   }
 }
 
@@ -73,7 +93,7 @@ class MigrationsDb {
 
   async all(): Promise<MigrationRecord[]> {
     const { rows } = await this.client.query(
-      sql`select * from ${this.tableIdentifier}`
+      sql`select * from ${this.tableIdentifier} order by name`
     );
     return rows;
   }
@@ -102,6 +122,9 @@ class DiskMigration {
 
     for (const fileName of files) {
       if (/\.sql/.test(fileName)) {
+        if (!/\d\d\d_/.test(fileName)) {
+          throw new Error("File name should be in format 000_name.sql");
+        }
         migrations.push(new DiskMigration(location, fileName));
       }
     }
