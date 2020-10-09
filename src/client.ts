@@ -9,7 +9,7 @@ let queuedProcessQueries = 0;
 let activeProcessTransactions = 0;
 
 async function run<T>(
-  queryConfig: string | Pg.QueryConfig,
+  queryConfig: string | QueryConfig,
   pgClient: pg.ClientBase,
   logger: Logger
 ): Promise<T[]> {
@@ -116,7 +116,7 @@ export async function getPgStats(client: Client): Promise<Stats> {
 }
 
 export interface Client {
-  run<T = unknown>(query: string | Pg.QueryConfig): Promise<T[]>;
+  run<T = unknown>(query: string | QueryConfig): Promise<T[]>;
   transaction<T>(name: string, f: (db: Client) => Promise<T>): Promise<T>;
 }
 
@@ -156,7 +156,7 @@ export class PoolClient implements Client {
 class ActiveClient implements Client {
   constructor(private pgClient: pg.ClientBase, private logger: Logger) {}
 
-  run<T = unknown>(query: string | Pg.QueryConfig): Promise<T[]> {
+  run<T = unknown>(query: string | QueryConfig): Promise<T[]> {
     return run(query, this.pgClient, this.logger);
   }
 
@@ -229,7 +229,7 @@ class ActiveTransactionClient implements Client {
     private txnId: string
   ) {}
 
-  run<T = unknown>(query: string | Pg.QueryConfig): Promise<T[]> {
+  run<T = unknown>(query: string | QueryConfig): Promise<T[]> {
     return run(query, this.pgClient, this.logger);
   }
 
