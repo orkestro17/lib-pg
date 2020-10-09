@@ -2,18 +2,20 @@ import * as glob from "glob";
 import { readFileSync } from "fs";
 import { QueryConfig } from "pg";
 
+interface QueryInFile {
+  text: string;
+  lineNo: number;
+  ignoreErrorCodes: string[];
+}
+
 /**
  * Split slq content containing multiple queries.
  * Comment's must be present separating multiple queries.
  */
-export function splitSqlText(queryText: string): QueryConfig[] {
+export function splitSqlText(queryText: string): QueryInFile[] {
   const lines = queryText.split(/\n\r?/gm);
 
-  const queries: {
-    text: string;
-    lineNo: number;
-    ignoreErrorCodes: string[];
-  }[] = [];
+  const queries: QueryInFile[] = [];
 
   const ignoreErrorCodes: string[] = [];
 

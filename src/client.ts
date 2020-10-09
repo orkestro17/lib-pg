@@ -1,9 +1,8 @@
 import pg from "pg";
 import { v1 as uuid } from "uuid";
-import { readFileSync } from "fs";
 import { sql } from "./tag";
 import * as pgTypes from "./pg-types";
-import { QueryConfig } from "./types";
+import { QueryConfig, Logger } from "./types";
 
 // This can be used to inspect or report number of queries/transactions that are queued up. Number getting high will indicate issue.
 let queuedProcessQueries = 0;
@@ -114,11 +113,6 @@ export async function getPgStats(client: Client): Promise<Stats> {
     activeProcessTransactions,
     queuedProcessQueries,
   };
-}
-
-interface Logger {
-  info(...args: unknown[]): void;
-  error(...args: unknown[]): void;
 }
 
 export interface Client {

@@ -83,6 +83,68 @@ const insertAB = sql`
 `;
 ```
 
+## Writing and running migrations
+
+Write migration in sql files in `migrations/` folder.
+
+File names should follow `NNN_name.sql` format where NNN is sequence number, for example
+
+- migrations/001_company.sql
+- migrations/002_person.sql
+
+More than one sql command per file is allowed, by separating multiple queries with a comment statements.
+
+```
+-- create table:
+create table person (
+  id serial primary key,
+  name text
+);
+
+
+-- create index:
+create index person_name on table person (name);
+```
+
+BEGIN, COMMIT statements can be used inside the file to wrap statements into a transaction
+
+```
+-- start transaction
+BEGIN;
+
+-- add new field
+alter table person add column phone text;
+
+-- copy phones from organizations
+update person set phone = (select phone from organization where ...)
+
+-- introduce not null constraint
+alter table person modify phone not null;
+
+-- commit transaction
+commit;
+```
+
+It's recommended to run migrations during app boot phase
+
+```
+import {Pool} from "pg"
+import { migrateSchema, getConfigFromEnv, PoolClient } from "@orkestro/lib-pg"
+
+async function startApp() {
+  const options = getConfigFromEnv(process.env)
+  const logger = console
+
+  await migrateSchema(options, logger)
+
+  const pool = new Pool(options)
+  const client = new PoolClient(pool, logger)
+
+  const expressApp = createExpressApp(client)
+  expressApp.listen()
+}
+```
+
 ## Writing tests that use postgresql
 
 Use `usingPg()` helper. It will wrap each test case in transaction and rollback after test.
