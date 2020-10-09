@@ -1,4 +1,4 @@
-export { getConfigFromEnv } from "./config";
+export { getPgConfig } from "./config";
 export { sql } from "./tag";
 export { PoolClient, Client, getPgStats } from "./client";
 export { insert } from "./insert";

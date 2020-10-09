@@ -1,12 +1,12 @@
 import { expect } from "chai";
 import * as migration from "../src/migration";
-import { getConfigFromEnv } from "../src/config";
+import { getPgConfig } from "../src/config";
 import { Client } from "pg";
 import { sql } from "../src/tag";
 
 describe("migration", () => {
   describe("end-to-end", () => {
-    const clientConfig = getConfigFromEnv(process.env);
+    const clientConfig = getPgConfig(process.env);
 
     const goodMigrations: migration.MigrationsOptions = {
       folderLocation: "test/migrations/success",

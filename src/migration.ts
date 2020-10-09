@@ -7,16 +7,19 @@ import { sql } from "./tag";
 import { Logger } from "./types";
 
 export interface MigrationsOptions {
-  tableName: string;
-  folderLocation: string;
+  tableName?: string;
+  folderLocation?: string;
 }
 
 export async function migrateSchema(
   logger: Logger,
   clientConfig: ClientConfig,
-  migrationsOptions: MigrationsOptions
+  migrationsOptions: MigrationsOptions = {}
 ): Promise<void> {
-  const { folderLocation, tableName } = migrationsOptions;
+  const {
+    folderLocation = "migrations",
+    tableName = "schema_migrations",
+  } = migrationsOptions;
 
   const client = new Client(clientConfig);
 

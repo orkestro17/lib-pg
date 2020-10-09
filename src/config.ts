@@ -1,7 +1,7 @@
 import { readFileSync } from "fs";
 import { PoolConfig } from "pg";
 
-export function getConfigFromEnv(
+export function getPgConfig(
   env: NodeJS.ProcessEnv,
   defaults: PoolConfig = {}
 ): PoolConfig {
