@@ -1,30 +1,26 @@
 import { expect } from "chai";
 import * as migration from "../src/migration";
-import { getConfigFromEnv } from "../src/config";
+import { getPgConfig } from "../src/config";
 import { Client } from "pg";
-import { DatabaseOptions } from "../src/types";
 import { sql } from "../src/tag";
 
 describe("migration", () => {
   describe("end-to-end", () => {
-    const configSuccess: DatabaseOptions = {
-      ...getConfigFromEnv(process.env),
-      migrations: {
-        folderLocation: "test/migrations/success",
-        tableName: "test_schema_migrations",
-      },
+    const clientConfig = getPgConfig(process.env);
+
+    const goodMigrations: migration.MigrationsOptions = {
+      folderLocation: "test/migrations/success",
+      tableName: "test_schema_migrations",
     };
-    const configFailure: DatabaseOptions = {
-      ...getConfigFromEnv(process.env),
-      migrations: {
-        folderLocation: "test/migrations/failure",
-        tableName: "test_schema_migrations",
-      },
+    const failingMigrations: migration.MigrationsOptions = {
+      folderLocation: "test/migrations/failure",
+      tableName: "test_schema_migrations",
     };
+
     let client: Client;
 
     beforeEach(async () => {
-      client = new Client(configSuccess);
+      client = new Client(clientConfig);
       await client.connect();
       await client.query(sql`drop table if exists test_schema_migrations`);
       await client.query(sql`drop table if exists test_table`);
@@ -35,7 +31,7 @@ describe("migration", () => {
     });
 
     it("successfully runs migrations", async () => {
-      await migration.migrateSchema(console, configSuccess);
+      await migration.migrateSchema(console, clientConfig, goodMigrations);
 
       const { rows: testTableData } = await client.query(
         sql`select * from test_table order by name`
@@ -62,10 +58,10 @@ describe("migration", () => {
 
     it("successfully runs migration, when executed in parallel", async () => {
       await Promise.all([
-        migration.migrateSchema(console, configSuccess),
-        migration.migrateSchema(console, configSuccess),
-        migration.migrateSchema(console, configSuccess),
-        migration.migrateSchema(console, configSuccess),
+        migration.migrateSchema(console, clientConfig, goodMigrations),
+        migration.migrateSchema(console, clientConfig, goodMigrations),
+        migration.migrateSchema(console, clientConfig, goodMigrations),
+        migration.migrateSchema(console, clientConfig, goodMigrations),
       ]);
 
       const { rows: testTableData } = await client.query(
@@ -80,7 +76,7 @@ describe("migration", () => {
 
     it("stops execution on first error", async () => {
       const migrationResult = await migration
-        .migrateSchema(console, configFailure)
+        .migrateSchema(console, clientConfig, failingMigrations)
         .catch((e) => e);
 
       expect(migrationResult).to.be.instanceOf(Error);

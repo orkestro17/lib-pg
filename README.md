@@ -127,14 +127,17 @@ commit;
 It's recommended to run migrations during app boot phase
 
 ```
-import {Pool} from "pg"
-import { migrateSchema, getConfigFromEnv, PoolClient } from "@orkestro/lib-pg"
+import { Pool } from "pg"
+import { migrateSchema, getPgConfig, PoolClient } from "@orkestro/lib-pg"
 
 async function startApp() {
-  const options = getConfigFromEnv(process.env)
+  const config = getPgConfig(process.env)
   const logger = console
 
-  await migrateSchema(options, logger)
+  await migrateSchema(logger, config, {
+    tableName: 'schema_migrations',
+    folderLocation: 'migrations'
+  })
 
   const pool = new Pool(options)
   const client = new PoolClient(pool, logger)

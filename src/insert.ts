@@ -1,3 +1,4 @@
+/// <reference path="../globals.d.ts" />
 import { sql } from "./tag";
 
 /** @type {(

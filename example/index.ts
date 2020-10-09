@@ -1,19 +1,19 @@
-import {
-  getConfigFromEnv,
-  migrateSchema,
-  PoolClient,
-  sql,
-} from "@orkestro/lib-pg";
+import { getPgConfig, migrateSchema, PoolClient, sql } from "@orkestro/lib-pg";
 import { Pool } from "pg";
 
 async function main() {
-  const databaseOptions = getConfigFromEnv(process.env);
+  const clientConfig = getPgConfig(process.env, {
+    database: "pg_lib_example",
+  });
   const logger = console;
 
   // run migrations
-  await migrateSchema(logger, databaseOptions);
+  await migrateSchema(logger, clientConfig, {
+    folderLocation: "migrations",
+    tableName: "schema_migrations",
+  });
 
-  const pool = new Pool(databaseOptions);
+  const pool = new Pool(clientConfig);
   try {
     const client = new PoolClient(pool, logger);
 
