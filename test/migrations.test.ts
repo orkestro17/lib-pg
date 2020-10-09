@@ -7,17 +7,24 @@ import { sql } from "../src/tag";
 
 describe("migration", () => {
   describe("end-to-end", () => {
-    const config: DatabaseOptions = {
+    const configSuccess: DatabaseOptions = {
       ...getConfigFromEnv(process.env),
       migrations: {
-        folderLocation: "test/migrations",
+        folderLocation: "test/migrations/success",
+        tableName: "test_schema_migrations",
+      },
+    };
+    const configFailure: DatabaseOptions = {
+      ...getConfigFromEnv(process.env),
+      migrations: {
+        folderLocation: "test/migrations/failure",
         tableName: "test_schema_migrations",
       },
     };
     let client: Client;
 
     beforeEach(async () => {
-      client = new Client(config);
+      client = new Client(configSuccess);
       await client.connect();
       await client.query(sql`drop table if exists test_schema_migrations`);
       await client.query(sql`drop table if exists test_table`);
@@ -28,7 +35,7 @@ describe("migration", () => {
     });
 
     it("successfully runs migrations", async () => {
-      await migration.migrateSchema(console, config);
+      await migration.migrateSchema(console, configSuccess);
 
       const { rows: testTableData } = await client.query(
         sql`select * from test_table order by name`
@@ -38,7 +45,10 @@ describe("migration", () => {
         sql`select name from test_schema_migrations order by name`
       );
 
-      expect(testTableData).to.eql([{ id: 1, name: "Test" }]);
+      expect(testTableData).to.eql([
+        { id: 1, name: "Test 1" },
+        { id: 2, name: "Test 2" },
+      ]);
 
       expect(migrationsData).to.eql([
         {
@@ -52,17 +62,49 @@ describe("migration", () => {
 
     it("successfully runs migration, when executed in parallel", async () => {
       await Promise.all([
-        migration.migrateSchema(console, config),
-        migration.migrateSchema(console, config),
-        migration.migrateSchema(console, config),
-        migration.migrateSchema(console, config),
+        migration.migrateSchema(console, configSuccess),
+        migration.migrateSchema(console, configSuccess),
+        migration.migrateSchema(console, configSuccess),
+        migration.migrateSchema(console, configSuccess),
       ]);
 
       const { rows: testTableData } = await client.query(
         sql`select * from test_table order by name`
       );
 
-      expect(testTableData).to.eql([{ id: 1, name: "Test" }]);
+      expect(testTableData).to.eql([
+        { id: 1, name: "Test 1" },
+        { id: 2, name: "Test 2" },
+      ]);
+    });
+
+    it("stops execution on first error", async () => {
+      const migrationResult = await migration
+        .migrateSchema(console, configFailure)
+        .catch((e) => e);
+
+      expect(migrationResult).to.be.instanceOf(Error);
+      expect(migrationResult.message).to.eql(
+        'Migration test/migrations/failure/003_error.sql:1 failed: [code 42P01] relation "non_existing_table" does not exist'
+      );
+
+      const { rows: migrationsData } = await client.query(
+        sql`select name from test_schema_migrations order by name`
+      );
+
+      expect(migrationsData).to.eql([
+        {
+          name: "001_create_table.sql",
+        },
+        {
+          name: "002_before_error.sql",
+        },
+      ]);
+
+      const { rows: testTableData } = await client.query(
+        sql`select * from test_table order by name`
+      );
+      expect(testTableData).to.eql([{ id: 1, name: "before_error" }]);
     });
   });
 
