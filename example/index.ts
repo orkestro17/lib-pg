@@ -7,11 +7,16 @@ import {
 import { Pool } from "pg";
 
 async function main() {
-  const databaseOptions = getConfigFromEnv(process.env);
+  const databaseOptions = getConfigFromEnv(process.env, {
+    database: "pg_lib_example",
+  });
   const logger = console;
 
   // run migrations
-  await migrateSchema(logger, databaseOptions);
+  await migrateSchema(logger, databaseOptions, {
+    folderLocation: "migrations",
+    tableName: "schema_migrations",
+  });
 
   const pool = new Pool(databaseOptions);
   try {

@@ -1,18 +1,24 @@
 import { createHash } from "crypto";
 import { readdirSync, readFileSync } from "fs";
 import { join as joinPath } from "path";
-import { Client } from "pg";
+import { Client, ClientConfig } from "pg";
 import { splitSqlText } from "./sql-files";
 import { sql } from "./tag";
-import { DatabaseOptions, Logger } from "./types";
+import { Logger } from "./types";
+
+export interface MigrationsOptions {
+  tableName: string;
+  folderLocation: string;
+}
 
 export async function migrateSchema(
   logger: Logger,
-  options: DatabaseOptions
+  clientConfig: ClientConfig,
+  migrationsOptions: MigrationsOptions
 ): Promise<void> {
-  const { folderLocation, tableName } = options.migrations;
+  const { folderLocation, tableName } = migrationsOptions;
 
-  const client = new Client(options);
+  const client = new Client(clientConfig);
 
   client.on("error", (e) => logger.error(e));
 
