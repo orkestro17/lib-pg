@@ -17,6 +17,6 @@ export interface QueryConfig extends pg.QueryConfig {
 }
 
 export interface Logger {
-  info(...args: unknown[]): void;
-  error(...args: unknown[]): void;
+  info(message: string, ...args: unknown[]): void;
+  error(message: string, ...args: unknown[]): void;
 }

@@ -1,156 +1,114 @@
-import log from "../log";
 import Pg from "pg";
-import {
-  runSql,
-  pool,
-  runSqlFiles,
-  dbName,
-  TransactionClient,
-  PoolClient,
-} from "./client";
-import pgTypes from "./pg-types";
-import pgConnConfig from "config/pg";
+import { Client, ActiveTransactionClient, ActiveClient } from "../src/client";
+import { getPgConfig } from "../src/config";
+import { migrateSchema } from "../src/migration";
+import * as pgTypes from "../src/pg-types";
 
-let pgSetupPromise;
+let pgSetupPromise: Promise<unknown>;
 
-const maintenanceConfig = { ...pgConnConfig, database: "postgres" };
+const config = {
+  pgDefault: getPgConfig(process.env, { database: "test" }),
+  pgMaintenance: { ...getPgConfig(process.env), database: "postgres" },
+};
 
 async function pgSetup() {
-  await ensureDatabaseExists();
-  await runSqlFiles("schema/*.sql");
-  await pgTypes.initPgTypes(pool);
+  await createDatabase();
+  await migrateSchema(console, config.pgDefault);
+  const conn = new Pg.Client(config.pgDefault);
+  await conn.connect();
+  await pgTypes.initPgTypes(conn);
+  await conn.end();
 }
 
-if (typeof after !== "undefined") {
-  after(async function () {
-    this.timeout(10000);
-    if (pgSetupPromise) {
-      await pgSetupPromise;
-      await pool.end();
-    }
-  });
-}
-
-async function ensureDatabaseExists() {
-  if (pool.idleCount > 0) {
+async function createDatabase() {
+  const { database: dbName } = config.pgDefault;
+  if (!dbName || !dbName.endsWith("test")) {
     throw new Error(
-      "There are idle connections, cannot run db setup scripts, did you forgot to add usingPg() in some of tests?"
+      `Tests should run against test database (got: ${config.pgDefault.database})`
     );
   }
-  if (!dbName.endsWith("test")) {
-    throw new Error(`Tests should run against test database (got: ${dbName})`);
-  }
-  if (process.env.RESET_DB) {
-    await dropDatabase(dbName);
-  }
-  try {
-    const client = new Pg.Client(pgConnConfig);
-    await client.connect();
-    await client.query("select current_database()");
-    await client.end();
-  } catch (e) {
-    if (e.code === "3D000") {
-      // db-does-not-exist
-      const client = new Pg.Client({ ...pgConnConfig, database: "postgres" });
-      await client.connect();
-      await client.query(`create database "${dbName}"`);
-      await client.end();
-    } else {
-      throw e;
-    }
-  }
-}
-
-async function dropDatabase(dbName) {
-  const client = new Pg.Client(maintenanceConfig);
+  const client = new Pg.Client(config.pgMaintenance);
   await client.connect();
+
   try {
-    await client.query(
-      `
-      SELECT pg_terminate_backend(pid)
-      FROM pg_stat_activity
-      WHERE datname = $1;`,
-      [dbName]
-    ); // disconnects any connected clients
-    await client.query(`drop database "${dbName}"`);
-  } catch (e) {
-    if (e.code === "3D000") {
-      // db-does-not-exist
-    } else {
-      throw e;
+    if (process.env.RESET_DB) {
+      await client.query(`drop database if exists "${dbName}"`);
     }
+
+    const {
+      rowCount: dbExists,
+    } = await client.query("select 1 from pg_database where datname = $1", [
+      dbName,
+    ]);
+
+    if (!dbExists) {
+      await client.query(`create database "${dbName}"`);
+    }
+  } finally {
+    await client.end();
   }
-  await client.end();
 }
-/**
- * @param {{
- * isolation?: 'transaction' | 'cleanup' | 'none'
- * }} param0
- * @returns {{now: Date, db: Lib.Sql.Client}}
- */
-export function usingPg({ isolation = "transaction" } = {}) {
-  /** @type {{now: Date, db: Lib.Sql.Client}} */
-  const context = {
-    now: new Date(),
-    db: null,
-  };
 
-  before(async function () {
-    // increase timeout slightly for database setup phase
-    this.timeout(6000);
-    await (pgSetupPromise = pgSetupPromise || pgSetup());
-  });
+export class TestClient implements Client {
+  private pgClient: Pg.Client | null = null;
+  private db: Client | null = null;
 
-  if (isolation == "transaction") {
-    before(async function () {
-      await pgSetupPromise;
-      // const poolClient = await pool.connect()
-      const db = new TransactionClient(pool, log);
-      context.db = db;
-      // context.poolClient = poolClient
-      await db.run("begin transaction");
-      const [row] = await db.run("select now() as now");
-      context.now = row.now;
+  constructor({ testInTransaction = true } = {}) {
+    before(function () {
+      // increase timeout slightly for database setup phase
+      this.timeout(6000);
     });
-    after(async function () {
-      try {
-        await pgSetupPromise;
-        await context.db.run("rollback transaction");
-      } catch (error) {
-        console.log(error);
+
+    before(async () => {
+      await (pgSetupPromise = pgSetupPromise || pgSetup());
+      this.pgClient = new Pg.Client();
+      await this.pgClient.connect();
+      this.db = new ActiveClient(this.pgClient, console);
+    });
+
+    if (testInTransaction) {
+      before(async () => {
+        if (this.pgClient) {
+          await this.pgClient.query("begin transaction");
+          await this.pgClient.query("savepoint clean_state");
+          this.db = new ActiveTransactionClient(
+            this.pgClient,
+            console,
+            Date.now().toString()
+          );
+        }
+      });
+
+      afterEach(async () => {
+        if (this.pgClient) {
+          await this.pgClient.query("rollback to savepoint clean_state");
+        }
+      });
+
+      after(async () => {
+        if (this.db) {
+          await this.db.run("rollback transaction");
+        }
+      });
+    }
+
+    after(() => {
+      if (this.pgClient) {
+        this.pgClient.removeAllListeners();
+        this.pgClient.end();
+        this.pgClient = null;
+        this.db = null;
       }
     });
-    beforeEach(async function () {
-      await pgSetupPromise;
-      await context.db.run("savepoint before_each");
-    });
-    afterEach(async function () {
-      await pgSetupPromise;
-      await context.db.run("rollback to savepoint before_each");
-    });
   }
 
-  if (isolation == "cleanup") {
-    before(async function () {
-      const db = new PoolClient(pool, log);
-      context.db = db;
-      await db.run("begin transaction");
-      const [row] = await db.run("select now() as now");
-      context.now = row.now;
-    });
-    afterEach(async () => {
-      await Promise.all([
-        runSql("truncate table organization cascade"),
-        runSql("truncate table driver_locations cascade"),
-        runSql("truncate table task_locations cascade"),
-        runSql("truncate table drivers cascade"),
-        runSql("truncate table merchant cascade"),
-        runSql("truncate table fleet cascade"),
-        runSql('truncate table "user" cascade'),
-        runSql("truncate table token cascade"),
-      ]);
-    });
+  run<T>(query: Pg.QueryConfig | string): Promise<T[]> {
+    if (!this.db) throw new Error("Not connected to database");
+    return this.db.run<T>(query);
   }
 
-  return context;
+  transaction<T>(name: string, cb: (client: Client) => Promise<T>): Promise<T> {
+    if (!this.db) throw new Error("Not connected to database");
+    return this.db.transaction(name, cb);
+  }
 }

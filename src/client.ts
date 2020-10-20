@@ -153,7 +153,7 @@ export class PoolClient implements Client {
 /**
  * A client that was checked out from pool of clients.
  */
-class ActiveClient implements Client {
+export class ActiveClient implements Client {
   constructor(private pgClient: pg.ClientBase, private logger: Logger) {}
 
   run<T = unknown>(query: string | QueryConfig): Promise<T[]> {
@@ -166,21 +166,22 @@ class ActiveClient implements Client {
   ): Promise<T> {
     const { pgClient } = this;
     const txnId = uuid();
-    const transactionFail = new Error(`Transaction ${transactionName} failed`);
+    const transactionError = new Error(`Transaction error`);
     const start = Date.now();
     activeProcessTransactions++;
+    const logger = new PrefixedLogger(
+      `[txn:${transactionName}:${txnId}]`,
+      this.logger
+    );
     const transactionClient = new ActiveTransactionClient(
       pgClient,
-      this.logger,
+      logger,
       txnId
     );
 
-    this.logger.info(
-      `[txn: ${txnId}] Starting transaction ${transactionName}`,
-      {
-        activeTransactions: activeProcessTransactions,
-      }
-    );
+    logger.info(`Starting transaction`, {
+      activeTransactions: activeProcessTransactions,
+    });
 
     try {
       await pgClient.query("begin");
@@ -188,27 +189,21 @@ class ActiveClient implements Client {
       return await f(transactionClient)
         .then(async (result) => {
           await pgClient.query("commit");
-          this.logger.info(
-            `[txn: ${txnId}] Transaction ${transactionName} committed`,
-            {
-              duration: Date.now() - start,
-            }
-          );
+          logger.info(`Transaction committed`, {
+            duration: Date.now() - start,
+          });
           return result;
         })
         .catch(async (error) => {
-          this.logger.info(transactionFail);
+          logger.error("Transaction failed", error);
 
           try {
             await pgClient.query("rollback");
           } catch (error) {
-            this.logger.info(
-              `[txn: ${txnId}] Failed to rollback transaction: `,
-              error
-            );
+            logger.error(`Failed to rollback transaction: `, error);
           }
 
-          throw error;
+          throw transactionError;
         });
     } finally {
       activeProcessTransactions--;
@@ -222,7 +217,7 @@ class ActiveClient implements Client {
  * Adds logging information about transaction,
  * implements transaction() as savepoint
  */
-class ActiveTransactionClient implements Client {
+export class ActiveTransactionClient implements Client {
   constructor(
     private pgClient: pg.ClientBase,
     private logger: Logger,
@@ -268,5 +263,21 @@ class ActiveTransactionClient implements Client {
 
       throw error;
     }
+  }
+}
+
+class PrefixedLogger implements Logger {
+  constructor(private prefix: string, private logger: Logger) {}
+
+  info(message: string, ...args: unknown[]) {
+    this.logger.info(`${this.prefix} ${message}`, ...args);
+  }
+
+  error(message: string, ...args: unknown[]) {
+    this.logger.error(`${this.prefix} ${message}`, ...args);
+  }
+
+  toString() {
+    return `PrefixedLogger[${this.prefix} ${this.logger}]`;
   }
 }

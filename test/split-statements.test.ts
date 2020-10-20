@@ -1,5 +1,5 @@
 import { deepStrictEqual as eq } from "assert";
-import { splitSqlText } from "../src/split-statements";
+import { splitSqlText } from "../src/sql-files";
 
 const multiQuerySample = `
 -- Query 1:
@@ -36,25 +36,25 @@ describe("lib/sql/split-statements", () => {
 
       eq(result[0], {
         lineNo: 3,
-        queryText: "create table one (id int);",
+        text: "create table one (id int);",
         ignoreErrorCodes: [],
       });
 
       eq(result[1], {
         lineNo: 9,
-        queryText: "create table two (\n  id int\n);",
+        text: "create table two (\n  id int\n);",
         ignoreErrorCodes: [],
       });
 
       eq(result[2], {
         lineNo: 16,
-        queryText: "select 'ok'",
+        text: "select 'ok'",
         ignoreErrorCodes: ["1", "2", "3"],
       });
 
       eq(result[3], {
         lineNo: 20,
-        queryText: "create table three (\n  int id\n)",
+        text: "create table three (\n  int id\n)",
         ignoreErrorCodes: [],
       });
     });
