@@ -1,4 +1,4 @@
-import "../globals";
+/// <reference path="../globals.d.ts" />
 import { sql } from "./tag";
 import { QueryConfig } from "./types";
 
