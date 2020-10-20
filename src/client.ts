@@ -169,9 +169,9 @@ export class ActiveClient implements Client {
     const transactionError = new Error(`Transaction error`);
     const start = Date.now();
     activeProcessTransactions++;
-    const logger = bindPrefixToLogger(
-      this.logger,
-      `[txn:${transactionName}:${txnId}]`
+    const logger = new PrefixedLogger(
+      `[txn:${transactionName}:${txnId}]`,
+      this.logger
     );
     const transactionClient = new ActiveTransactionClient(
       pgClient,
@@ -266,13 +266,18 @@ export class ActiveTransactionClient implements Client {
   }
 }
 
-function bindPrefixToLogger(logger: Logger, prefix: string) {
-  return {
-    info(message: string, ...args: unknown[]) {
-      logger.info(`${prefix} ${message}`, ...args);
-    },
-    error(message: string, ...args: unknown[]) {
-      logger.error(`${prefix} ${message}`, ...args);
-    },
-  };
+class PrefixedLogger implements Logger {
+  constructor(private prefix: string, private logger: Logger) {}
+
+  info(message: string, ...args: unknown[]) {
+    this.logger.info(`${this.prefix} ${message}`, ...args);
+  }
+
+  error(message: string, ...args: unknown[]) {
+    this.logger.error(`${this.prefix} ${message}`, ...args);
+  }
+
+  toString() {
+    return `PrefixedLogger[${this.prefix} ${this.logger}]`;
+  }
 }
