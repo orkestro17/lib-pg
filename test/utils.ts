@@ -6,67 +6,47 @@ import * as pgTypes from "../src/pg-types";
 
 let pgSetupPromise: Promise<unknown>;
 
-const pgMaintenanceConfig = getPgConfig({ database: "postgres" });
-const dbName = process.env.PGDATABASE || "test";
-const pgDefaultConfig = getPgConfig({ database: dbName });
-
-// pg error codes
-// https://www.postgresql.org/docs/current/errcodes-appendix.html
-const INVALID_CATALOG_NAME = "3D000";
+const config = {
+  pgDefault: getPgConfig(process.env, { database: "test" }),
+  pgMaintenance: { ...getPgConfig(process.env), database: "postgres" },
+};
 
 async function pgSetup() {
-  await ensureDatabaseExists();
-  await migrateSchema(console, pgDefaultConfig);
-  const conn = new Pg.Client(pgDefaultConfig);
+  await createDatabase();
+  await migrateSchema(console, config.pgDefault);
+  const conn = new Pg.Client(config.pgDefault);
   await conn.connect();
   await pgTypes.initPgTypes(conn);
   await conn.end();
 }
 
-async function ensureDatabaseExists() {
-  if (!dbName.endsWith("test")) {
-    throw new Error(`Tests should run against test database (got: ${dbName})`);
+async function createDatabase() {
+  const { database: dbName } = config.pgDefault;
+  if (!dbName || !dbName.endsWith("test")) {
+    throw new Error(
+      `Tests should run against test database (got: ${config.pgDefault.database})`
+    );
   }
-  if (process.env.RESET_DB) {
-    await dropDatabase(dbName);
-  }
-  try {
-    const client = new Pg.Client(pgDefaultConfig);
-    await client.connect();
-    await client.query("select current_database()");
-    await client.end();
-  } catch (e) {
-    if (e.code === INVALID_CATALOG_NAME) {
-      const client = new Pg.Client(pgMaintenanceConfig);
-      await client.connect();
-      await client.query(`create database "${dbName}"`);
-      await client.end();
-    } else {
-      throw e;
-    }
-  }
-}
-
-async function dropDatabase(dbName: string) {
-  const client = new Pg.Client(pgMaintenanceConfig);
+  const client = new Pg.Client(config.pgMaintenance);
   await client.connect();
+
   try {
-    await client.query(
-      `
-      SELECT pg_terminate_backend(pid)
-      FROM pg_stat_activity
-      WHERE datname = $1;`,
-      [dbName]
-    ); // disconnects any connected clients
-    await client.query(`drop database "${dbName}"`);
-  } catch (e) {
-    if (e.code === "3D000") {
-      // db-does-not-exist
-    } else {
-      throw e;
+    if (process.env.RESET_DB) {
+      await client.query(`drop database if exists "${dbName}"`);
     }
+
+    const {
+      rowCount: dbExists,
+    } = await client.query("select 1 from pg_database where datname = $1", [
+      dbName,
+    ]);
+
+    if (!dbExists) {
+      await client.query(`create database "${dbName}"`);
+    }
+  } finally {
+    await client.end();
   }
-  await client.end();
 }
 
 export class TestClient implements Client {

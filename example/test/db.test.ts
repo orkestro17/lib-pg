@@ -6,7 +6,7 @@ describe("test example", () => {
   const db = new TestClient();
 
   beforeEach(async () => {
-    await db.run(sql`insert into test_record (name) values (${"beforeEach"})`);
+    await db.run(sql`insert into test_record (name) values (${"Before Each"})`);
   });
 
   it("Test 1", async () => {
@@ -16,7 +16,7 @@ describe("test example", () => {
       sql`select name from test_record order by name`
     );
 
-    expect(result).to.eql([{ name: "beforeEach" }, { name: "Test 1" }]);
+    expect(result).to.eql([{ name: "Before Each" }, { name: "Test 1" }]);
   });
 
   it("Test 2", async () => {
@@ -26,6 +26,6 @@ describe("test example", () => {
       sql`select name from test_record`
     );
 
-    expect(result).to.eql([{ name: "beforeEach" }, { name: "Test 2" }]);
+    expect(result).to.eql([{ name: "Before Each" }, { name: "Test 2" }]);
   });
 });
