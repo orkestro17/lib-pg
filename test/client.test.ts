@@ -31,7 +31,7 @@ describe("db.sql.client", () => {
 
     it("failed query produces informative stacktrace", async () => {
       try {
-        await db.run(sql`syntaxError`).then((r) => {
+        await db.run(sql`syntaxError`).then(() => {
           throw new Error("Query did not throw error");
         });
       } catch (e) {

@@ -1,5 +1,6 @@
-/// <reference path="../globals.d.ts" />
+import "../globals";
 import { sql } from "./tag";
+import { QueryConfig } from "./types";
 
 /** @type {(
  *    table: T,
@@ -8,7 +9,7 @@ import { sql } from "./tag";
 export function insert<T extends keyof SqlSchema.Schema>(
   table: T,
   data: Partial<SqlSchema.Schema[T]>[]
-) {
+): QueryConfig {
   if (data.length === 0) {
     return sql`select null`;
   }
