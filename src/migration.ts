@@ -23,7 +23,7 @@ export async function migrateSchema(
 
   const client = new Client(clientConfig);
 
-  client.on("error", (e) => logger.error(e));
+  client.on("error", (e) => logger.error("Error in migrations", e));
 
   await client.connect();
 
