@@ -1,16 +1,21 @@
 import { readFileSync } from "fs";
-import { PoolConfig } from "pg";
+import { PgConfig } from "./types";
 
 export function getPgConfig(
   env: NodeJS.ProcessEnv,
-  defaults: PoolConfig = {}
-): PoolConfig {
+  defaults: PgConfig = {}
+): PgConfig {
   const ca = env.PGSSLROOTCERT;
   const key = env.PGSSLKEY;
   const cert = env.PGSSLCERT;
+  const host = env.PGHOST || defaults.host || "127.0.0.1";
+
+  const nodeHost = host.startsWith("/") ? undefined : host;
+  const nodeUnixSocket = host.startsWith("/") ? host : undefined;
 
   return {
-    host: env.PGHOST || defaults.host || "127.0.0.1",
+    host: nodeHost,
+    socketPath: nodeUnixSocket,
     port: parseInt(`${env.PGPORT || defaults.port || "5432"}`, 10),
     user: env.PGUSER || defaults.user || "postgres",
     database: env.PGDATABASE || defaults.database || "postgres",

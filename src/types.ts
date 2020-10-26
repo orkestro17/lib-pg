@@ -20,3 +20,8 @@ export interface Logger {
   info(message: string, ...args: unknown[]): void;
   error(message: string, ...args: unknown[]): void;
 }
+
+export interface PgConfig extends pg.PoolConfig {
+  // this valid attribute is missing in @types/pg:
+  socketPath?: string;
+}
