@@ -71,11 +71,7 @@ export class TestClient implements Client {
         if (this.pgClient) {
           await this.pgClient.query("begin transaction");
           await this.pgClient.query("savepoint clean_state");
-          this.db = new ActiveTransactionClient(
-            this.pgClient,
-            console,
-            Date.now().toString()
-          );
+          this.db = new ActiveTransactionClient(this.pgClient, console);
         }
       });
 
