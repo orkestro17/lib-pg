@@ -1,16 +1,16 @@
 import { sql } from "@orkestro/lib-pg";
-import { TestClient } from "@orkestro/lib-pg";
+import { TestClient, insert } from "@orkestro/lib-pg";
 import { expect } from "chai";
 
 describe("test example", () => {
   const db = new TestClient();
 
   beforeEach(async () => {
-    await db.run(sql`insert into test_record (name) values (${"Before Each"})`);
+    await db.run(insert("test_record", [{ name: "Before Each" }]));
   });
 
   it("Test 1", async () => {
-    await db.run(sql`insert into test_record (name) values (${"Test 1"})`);
+    await db.run(insert("test_record", [{ name: "Test 1" }]));
 
     const result = await db.run<{ name: string }>(
       sql`select name from test_record order by name`
@@ -20,7 +20,7 @@ describe("test example", () => {
   });
 
   it("Test 2", async () => {
-    await db.run(sql`insert into test_record (name) values (${"Test 2"})`);
+    await db.run(insert("test_record", [{ name: "Test 2" }]));
 
     const result = await db.run<{ name: string }>(
       sql`select name from test_record`
