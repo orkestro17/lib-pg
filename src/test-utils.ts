@@ -99,12 +99,18 @@ export class TestClient implements Client {
   }
 
   run<T>(query: Pg.QueryConfig | string): Promise<T[]> {
-    if (!this.db) throw new Error("Not connected to database");
+    if (!this.db)
+      throw new Error(
+        "TestClient.run() can only be used from within before(), beforeEach(), it(), afterEach(), after()"
+      );
     return this.db.run<T>(query);
   }
 
   transaction<T>(name: string, cb: (client: Client) => Promise<T>): Promise<T> {
-    if (!this.db) throw new Error("Not connected to database");
+    if (!this.db)
+      throw new Error(
+        "TestClient.transaction() can only be used from within before(), beforeEach(), it(), afterEach(), after()"
+      );
     return this.db.transaction(name, cb);
   }
 }
