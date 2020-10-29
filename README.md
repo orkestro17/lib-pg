@@ -2,10 +2,6 @@
 
 Wrapper on package `pg` with helpers
 
-## TODO
-
-- fix tests
-
 ## Connecting
 
 Setup env using `psql` compatible settings:
@@ -149,20 +145,36 @@ async function startApp() {
 
 ## Writing tests that use postgresql
 
-Use `usingPg()` helper. It will wrap each test case in transaction and rollback after test.
+Use `TestClient()` helper in tests. It will create database if not exists run migratoins and wrap each test case in transaction and rollback after test.
+
+It also supports environment parameter `RESET_DB=1` - this will result in database to be recreated.
+
+`TestClient` uses common environment variables for connection with.
+
+It's recommended in tests to use a different database than in development (npm start),
+in order to ensure that database is completely empty. This can be done by adding a config file, for example in `test/env.ts`:
 
 ```js
-const { deepStrictEqual: eq } = require("assert")
-const { usingPg } = require("@orkestro/lib-pg/tests/utils")
+process.env.PGDATABASE = "my_service_test";
+```
+
+Test example:
+
+```js
+const { TestClient, insert } = require("@orkestro/lib-pg");
 
 describe("pg sample", () => {
-  const ctx = usingPg()
-  const testFixtures = usingFixtures({
-    quotes: 5
-  })
+  // note that TestClient must always be initialized inside describe():
+  const db = new TestClient();
 
-  it('quotes are in database', () => {
-    const result = await ctx.db.run("select 'test'")
-  })
-})
+  beforeEach(async () => {
+    // cleanup logic is not necessary, because each test is wrapped inside transaction
+    // block that is rolled back after each test
+    await db.run(insert("booking", [{ id: "123" }]));
+  });
+
+  it("booking is in database", async () => {
+    const result = await db.run("select * from booking");
+  });
+});
 ```
