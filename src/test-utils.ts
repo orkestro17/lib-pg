@@ -1,8 +1,8 @@
 import Pg from "pg";
-import { Client, ActiveTransactionClient, ActiveClient } from "../src/client";
-import { getPgConfig } from "../src/config";
-import { migrateSchema } from "../src/migration";
-import * as pgTypes from "../src/pg-types";
+import { Client, ActiveTransactionClient, ActiveClient } from "./client";
+import { getPgConfig } from "./config";
+import { migrateSchema } from "./migration";
+import * as pgTypes from "./pg-types";
 
 let pgSetupPromise: Promise<unknown>;
 
