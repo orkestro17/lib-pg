@@ -3,17 +3,23 @@ import { Client, ActiveTransactionClient, ActiveClient } from "./client";
 import { getPgConfig } from "./config";
 import { migrateSchema } from "./migration";
 import * as pgTypes from "./pg-types";
+import { Logger } from "./types";
 
 let pgSetupPromise: Promise<unknown>;
+
+class NullLogger implements Logger {
+  info(message: string, ...args: unknown[]): void {}
+  error(message: string, ...args: unknown[]): void {}
+}
 
 const config = {
   pgDefault: getPgConfig(process.env, { database: "test" }),
   pgMaintenance: { ...getPgConfig(process.env), database: "postgres" },
 };
 
-async function pgSetup() {
+async function pgSetup(logger = new NullLogger()) {
   await createDatabase();
-  await migrateSchema(console, config.pgDefault);
+  await migrateSchema(logger, config.pgDefault);
   const conn = new Pg.Client(config.pgDefault);
   await conn.connect();
   await pgTypes.initPgTypes(conn);
@@ -53,7 +59,7 @@ export class TestClient implements Client {
   private pgClient: Pg.Client | null = null;
   private db: Client | null = null;
 
-  constructor({ testInTransaction = true } = {}) {
+  constructor({ testInTransaction = true, logger = new NullLogger() } = {}) {
     before(function () {
       // increase timeout slightly for database setup phase
       this.timeout(6000);
@@ -63,7 +69,7 @@ export class TestClient implements Client {
       await (pgSetupPromise = pgSetupPromise || pgSetup());
       this.pgClient = new Pg.Client();
       await this.pgClient.connect();
-      this.db = new ActiveClient(this.pgClient, console);
+      this.db = new ActiveClient(this.pgClient, logger);
     });
 
     if (testInTransaction) {
@@ -71,7 +77,7 @@ export class TestClient implements Client {
         if (this.pgClient) {
           await this.pgClient.query("begin transaction");
           await this.pgClient.query("savepoint clean_state");
-          this.db = new ActiveTransactionClient(this.pgClient, console);
+          this.db = new ActiveTransactionClient(this.pgClient, logger);
         }
       });
 
