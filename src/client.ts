@@ -166,7 +166,6 @@ export class ActiveClient implements Client {
   ): Promise<T> {
     const { pgClient } = this;
     const txnId = uuid();
-    const transactionError = new Error(`Transaction error`);
     const start = Date.now();
     activeProcessTransactions++;
 
@@ -192,15 +191,13 @@ export class ActiveClient implements Client {
           return result;
         })
         .catch(async (error) => {
-          logger.error("Transaction failed", error);
-
           try {
             await pgClient.query("rollback");
+            logger.info("Transaction rolled back");
           } catch (error) {
             logger.error(`Failed to rollback transaction: `, error);
           }
-
-          throw transactionError;
+          throw error;
         });
     } finally {
       activeProcessTransactions--;
