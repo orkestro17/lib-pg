@@ -1,4 +1,4 @@
-import { getPgConfig, migrateSchema, PoolClient, sql } from "@orkestro/lib-pg";
+import { getPgConfig, migrateSchema, PoolClient, sql } from "@orkestro17/lib-pg";
 import { Pool } from "pg";
 
 async function main() {
