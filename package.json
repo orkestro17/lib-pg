@@ -1,6 +1,6 @@
 {
   "name": "@orkestro17/lib-pg",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -8,8 +8,7 @@
     "lint": "eslint src test",
     "lint:fix": "eslint src test --fix",
     "build": "tsc",
-    "test": "mocha",
-    "postinstall": "tsc"
+    "test": "mocha"
   },
   "author": "Orkestro <developers@orkestro.com>",
   "license": "ISC",
