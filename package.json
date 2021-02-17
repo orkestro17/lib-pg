@@ -1,6 +1,6 @@
 {
-  "name": "@orkestro/lib-pg",
-  "version": "1.0.3",
+  "name": "@orkestro17/lib-pg",
+  "version": "1.0.4",
   "description": "",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

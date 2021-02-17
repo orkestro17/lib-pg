@@ -1,4 +1,4 @@
-# @orkestro/lib-pg
+# @orkestro17/lib-pg
 
 Wrapper on package `pg` with helpers
 
@@ -22,7 +22,7 @@ PG_MIN_POOL_SIZE (default 2)
 ```
 
 ```js
-import { PoolClient, createPoolFromEnv } from "@orkestro/lib-pg";
+import { PoolClient, createPoolFromEnv } from "@orkestro17/lib-pg";
 
 // will read config from env and create pg.Pool instance
 const pool = createPoolFromEnv();
@@ -124,7 +124,7 @@ It's recommended to run migrations during app boot phase
 
 ```
 import { Pool } from "pg"
-import { migrateSchema, getPgConfig, PoolClient } from "@orkestro/lib-pg"
+import { migrateSchema, getPgConfig, PoolClient } from "@orkestro17/lib-pg"
 
 async function startApp() {
   const config = getPgConfig(process.env)
@@ -163,7 +163,7 @@ It's important to note that since TestClient isolates tests in uncommitted trans
 Test example:
 
 ```js
-const { TestClient, insert } = require("@orkestro/lib-pg");
+const { TestClient, insert } = require("@orkestro17/lib-pg");
 
 describe("pg sample", () => {
   // note that TestClient instance must always be instantiated inside describe(),

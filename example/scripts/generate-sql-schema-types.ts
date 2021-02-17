@@ -3,7 +3,7 @@ import {
   migrateSchema,
   generateSchemaTypeDeclarations,
   getPgConfig,
-} from "@orkestro/lib-pg";
+} from "@orkestro17/lib-pg";
 
 const dbConfig = getPgConfig(process.env, {
   database: "pg_lib_example",

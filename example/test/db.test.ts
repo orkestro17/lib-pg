@@ -1,5 +1,5 @@
-import { sql } from "@orkestro/lib-pg";
-import { TestClient, insert } from "@orkestro/lib-pg";
+import { sql } from "@orkestro17/lib-pg";
+import { TestClient, insert } from "@orkestro17/lib-pg";
 import { expect } from "chai";
 
 describe("test example", () => {
