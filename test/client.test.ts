@@ -95,8 +95,8 @@ describe("db.sql.client", () => {
         [
           "[txn:query1:<uuid>] Starting transaction",
           "[txn:query1:<uuid>] Query(fail): failed (42601)",
-          "[txn:query1:<uuid>] Transaction failed",
           "[txn:query1:<uuid>] Query(select 1): failed (25P02)",
+          "[txn:query1:<uuid>] Transaction rolled back",
           "[txn:query2:<uuid>] Starting transaction",
           "[txn:query2:<uuid>] Query(select 1): SELECT 1",
           "[txn:query2:<uuid>] Query(select 2): SELECT 1",
