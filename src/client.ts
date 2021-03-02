@@ -195,7 +195,7 @@ export class ActiveClient implements Client {
             await pgClient.query("rollback");
             logger.info("Transaction rolled back");
           } catch (error) {
-            logger.error(`Failed to rollback transaction: `, error);
+            logger.warn(`Failed to rollback transaction: `, error);
           }
           throw error;
         });
@@ -256,6 +256,10 @@ class PrefixedLogger implements Logger {
 
   info(message: string, ...args: unknown[]) {
     this.logger.info(`${this.prefix} ${message}`, ...args);
+  }
+
+  warn(message: string, ...args: unknown[]) {
+    this.logger.warn(`${this.prefix} ${message}`, ...args);
   }
 
   error(message: string, ...args: unknown[]) {
