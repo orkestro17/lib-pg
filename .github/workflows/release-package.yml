@@ -27,6 +27,8 @@ jobs:
       - run: npm ci
       - run: npm run check:all
       - run: npm run test
+        env:
+          PGHOST: postgres
       - run: npm run build
       - run: npm publish
         env:
