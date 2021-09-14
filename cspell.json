@@ -26,6 +26,7 @@
     "PGHOST",
     "PGPASSWORD",
     "PGPORT",
+    "PGSERVERNAME",
     "PGSSLCERT",
     "PGSSLKEY",
     "PGSSLROOTCERT",
