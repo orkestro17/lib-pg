@@ -10,6 +10,8 @@ jobs:
     services:
       postgres:
         image: postgres:11.6-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-node@v1

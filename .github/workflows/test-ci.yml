@@ -9,6 +9,8 @@ jobs:
     services:
       postgres:
         image: postgres:11.6-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-node@v1
@@ -19,3 +21,5 @@ jobs:
       - run: npm run check:all
       - run: npm run build
       - run: npm run test
+        env:
+          PGHOST: postgres
