@@ -5,7 +5,7 @@ export function getPgConfig(env: NodeJS.ProcessEnv, defaults: PoolConfig = {}): 
   const ca = env.PGSSLROOTCERT
   const key = env.PGSSLKEY
   const cert = env.PGSSLCERT
-  const servername = process.env.PGSERVERNAME
+  const servername = env.PGSERVERNAME
 
   return {
     host: env.PGHOST || defaults.host || "127.0.0.1",
