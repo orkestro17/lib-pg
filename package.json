@@ -1,29 +1,25 @@
 {
   "name": "@orkestro17/lib-pg",
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "lint": "eslint src test",
-    "lint:fix": "eslint src test --fix",
     "build": "tsc",
-    "test": "mocha"
+    "test": "mocha",
+    "check:all": "npm run check:ts && npm run check:lint && npm run check:format && npm run check:spell",
+    "check:ts": "tsc --noEmit && tsc --project test/tsconfig.json --noEmit",
+    "check:lint": "eslint src test",
+    "check:format": "prettier -c 'src/**/*.ts' 'test/**/*.ts'",
+    "check:spell": "cspell 'src/**/*ts' 'test/**/*ts'",
+    "fix:all": "npm run fix:lint && npm run fix:format",
+    "fix:lint": "eslint src test --fix",
+    "fix:format": "prettier -w ."
   },
   "author": "Orkestro <developers@orkestro.com>",
   "license": "ISC",
   "dependencies": {
-    "@types/chai": "^4.2.13",
-    "@types/lodash": "^4.14.162",
-    "@types/mocha": "^8.0.3",
-    "@types/node": "^14.11.2",
-    "@types/pg": "^7.14.5",
-    "@types/uuid": "^8.3.0",
-    "@typescript-eslint/eslint-plugin": "^4.3.0",
-    "@typescript-eslint/parser": "^4.3.0",
-    "chai": "^4.2.0",
-    "eslint": "^7.10.0",
-    "eslint-config-prettier": "^6.12.0",
+    "glob": "^7.1.6",
     "lodash": "^4.17.20",
     "mocha": "^8.1.3",
     "pg": "^8.4.0",
@@ -32,7 +28,24 @@
     "uuid": "^8.3.1"
   },
   "devDependencies": {
-    "@types/glob": "^7.1.3"
+    "@types/chai": "^4.2.13",
+    "@types/glob": "^7.1.3",
+    "@types/lodash": "^4.14.162",
+    "@types/mocha": "^8.0.3",
+    "@types/node": "^14.11.2",
+    "@types/pg": "^7.14.5",
+    "@types/uuid": "^8.3.0",
+    "@typescript-eslint/eslint-plugin": "^4.22.0",
+    "@typescript-eslint/parser": "^4.22.0",
+    "chai": "^4.2.0",
+    "cspell": "^5.9.1",
+    "eslint": "^7.32.0",
+    "eslint-config-prettier": "^8.3.0",
+    "eslint-plugin-deprecation": "^1.2.1",
+    "eslint-plugin-import": "^2.24.2",
+    "eslint-plugin-no-only-tests": "^2.6.0",
+    "eslint-plugin-prettier": "^4.0.0",
+    "prettier": "^2.4.0"
   },
   "publishConfig": {
     "registry": "https://npm.pkg.github.com/orkestro17"

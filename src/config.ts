@@ -1,13 +1,11 @@
-import { readFileSync } from "fs";
-import { PoolConfig } from "pg";
+import { readFileSync } from "fs"
+import { PoolConfig } from "pg"
 
-export function getPgConfig(
-  env: NodeJS.ProcessEnv,
-  defaults: PoolConfig = {}
-): PoolConfig {
-  const ca = env.PGSSLROOTCERT;
-  const key = env.PGSSLKEY;
-  const cert = env.PGSSLCERT;
+export function getPgConfig(env: NodeJS.ProcessEnv, defaults: PoolConfig = {}): PoolConfig {
+  const ca = env.PGSSLROOTCERT
+  const key = env.PGSSLKEY
+  const cert = env.PGSSLCERT
+  const servername = env.PGSERVERNAME
 
   return {
     host: env.PGHOST || defaults.host || "127.0.0.1",
@@ -23,7 +21,8 @@ export function getPgConfig(
             ca: ca && readFileSync(ca).toString(),
             key: key && readFileSync(key).toString(),
             cert: cert && readFileSync(cert).toString(),
+            servername,
           }
         : defaults.ssl,
-  };
+  }
 }

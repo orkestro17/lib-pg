@@ -22,14 +22,14 @@ PG_MIN_POOL_SIZE (default 2)
 ```
 
 ```js
-import { PoolClient, createPoolFromEnv } from "@orkestro17/lib-pg";
+import { PoolClient, createPoolFromEnv } from "@orkestro17/lib-pg"
 
 // will read config from env and create pg.Pool instance
-const pool = createPoolFromEnv();
+const pool = createPoolFromEnv()
 
-const client = new PoolClient(pool, console);
+const client = new PoolClient(pool, console)
 
-client.run('select "connected!"');
+client.run('select "connected!"')
 ```
 
 **_Note:_** it's important to reuse `pg.Pool` instance, because it keeps track of open connections. PoolClient can be created any number of times on same pool.
@@ -56,26 +56,26 @@ Sql queries can be written using **sql``** tag literal
 Sql tag literal returns [QueryConfig accepted by pg.Client](https://node-postgres.com/api/client)
 
 ```js
-const { sql, runSql } = require("lib/sql");
+const { sql, runSql } = require("lib/sql")
 
-const userQuery = "Robert';drop table Students;--";
-sql`select ${user}`;
+const userQuery = "Robert';drop table Students;--"
+sql`select ${user}`
 //=> {text: "select $1", values: ["Robert';drop table Students;--"]}
 
-const result = await runSql(userQuery);
+const result = await runSql(userQuery)
 ```
 
 Statements can be nested
 
 ```js
-const insertA = sql`insert into A values (...)`;
-const insertB = sql`insert into B values (...)`;
+const insertA = sql`insert into A values (...)`
+const insertB = sql`insert into B values (...)`
 const insertAB = sql`
   with 
     a as ${insertA},
     b as ${insertB}
   select * FROM a, b
-`;
+`
 ```
 
 ## Writing and running migrations
@@ -145,7 +145,7 @@ async function startApp() {
 
 ## Writing tests that use postgresql
 
-Use `TestClient()` helper to unit tests that require database. It will create database if not exists run migratoins and wrap each test case in transaction and rollback after test.
+Use `TestClient()` helper to unit tests that require database. It will create database if not exists run migrations and wrap each test case in transaction and rollback after test.
 
 By default TestClient will reuse previously created database. It supports environment parameter `RESET_DB=1` - if set it then will recreate database from scratch.
 
@@ -155,7 +155,7 @@ It's recommended in tests to use a different database than in development (npm s
 in order to ensure that database is completely empty. This can be done by adding a config file, for example in `test/env.ts`:
 
 ```js
-process.env.PGDATABASE = "my_service_test";
+process.env.PGDATABASE = "my_service_test"
 ```
 
 It's important to note that since TestClient isolates tests in uncommitted transaction, data inserted in tests will not be visible in another parallel connection.
@@ -163,23 +163,23 @@ It's important to note that since TestClient isolates tests in uncommitted trans
 Test example:
 
 ```js
-const { TestClient, insert } = require("@orkestro17/lib-pg");
+const { TestClient, insert } = require("@orkestro17/lib-pg")
 
 describe("pg sample", () => {
   // note that TestClient instance must always be instantiated inside describe(),
   // and cannot be instantiated inside it() or before(), after()
-  const db = new TestClient();
+  const db = new TestClient()
 
-  const objectRepository = new ObjectRepository(db);
+  const objectRepository = new ObjectRepository(db)
 
   it("gets from object repository", async () => {
     // cleanup logic is not necessary, because each test is wrapped inside transaction
     // block that is rolled back after each test
-    await db.run(insert("object", [{ id: "123" }]));
+    await db.run(insert("object", [{ id: "123" }]))
 
-    const object = await objectRepository.getById("123");
+    const object = await objectRepository.getById("123")
 
-    expect(object).to.exists;
-  });
-});
+    expect(object).to.exists
+  })
+})
 ```

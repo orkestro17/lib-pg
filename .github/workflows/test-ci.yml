@@ -1,11 +1,10 @@
 name: Node.js Package
 
 on:
-  release:
-    types: [created]
+  push:
 
 jobs:
-  publish-gpr:
+  test:
     runs-on: ubuntu-latest
     container: node:12
     services:
@@ -20,14 +19,9 @@ jobs:
           --health-retries 5
     steps:
       - uses: actions/checkout@v2
-      - uses: actions/setup-node@v1
-        with:
-          node-version: 12
-          registry-url: https://npm.pkg.github.com/
       - run: npm ci
       - run: npm run check:all
-      - run: npm run test
       - run: npm run build
-      - run: npm publish
+      - run: npm run test
         env:
-          NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+          PGHOST: postgres

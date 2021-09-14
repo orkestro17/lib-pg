@@ -1,14 +1,14 @@
-import { createHash } from "crypto";
-import { readdirSync, readFileSync } from "fs";
-import { join as joinPath } from "path";
-import { Client, ClientConfig } from "pg";
-import { splitSqlText } from "./sql-files";
-import { sql } from "./tag";
-import { Logger } from "./types";
+import { createHash } from "crypto"
+import { readdirSync, readFileSync } from "fs"
+import { join as joinPath } from "path"
+import { Client, ClientConfig } from "pg"
+import { splitSqlText } from "./sql-files"
+import { sql } from "./tag"
+import { Logger } from "./types"
 
 export interface MigrationsOptions {
-  tableName?: string;
-  folderLocation?: string;
+  tableName?: string
+  folderLocation?: string
 }
 
 export async function migrateSchema(
@@ -16,83 +16,69 @@ export async function migrateSchema(
   clientConfig: ClientConfig,
   migrationsOptions: MigrationsOptions = {}
 ): Promise<void> {
-  const {
-    folderLocation = "migrations",
-    tableName = "schema_migrations",
-  } = migrationsOptions;
+  const { folderLocation = "migrations", tableName = "schema_migrations" } = migrationsOptions
 
-  const client = new Client(clientConfig);
+  const client = new Client(clientConfig)
 
-  client.on("error", (e) => logger.error("Error in migrations", e));
+  client.on("error", (e) => logger.error("Error in migrations", e))
 
-  await client.connect();
+  await client.connect()
 
   try {
-    await acquireLock(client);
+    await acquireLock(client)
 
-    const migrationsLog = new MigrationsLog(client, tableName);
-    await migrationsLog.initSchema();
+    const migrationsLog = new MigrationsLog(client, tableName)
+    await migrationsLog.initSchema()
 
-    const pastMigrations = await migrationsLog.getPastMigrations();
-    const diskMigrations = DiskMigration.readFromFolder(folderLocation);
+    const pastMigrations = await migrationsLog.getPastMigrations()
+    const diskMigrations = DiskMigration.readFromFolder(folderLocation)
 
-    validateState(diskMigrations, pastMigrations);
+    validateState(diskMigrations, pastMigrations)
 
     for (const migration of diskMigrations) {
-      const record = pastMigrations.find((row) => row.name === migration.name);
+      const record = pastMigrations.find((row) => row.name === migration.name)
 
       if (record) {
-        logger.info(`Skipping migration ${migration.name} - already migrated`);
+        logger.info(`Skipping migration ${migration.name} - already migrated`)
       } else {
-        await migration.run(client, logger);
-        await migrationsLog.insert(migration);
+        await migration.run(client, logger)
+        await migrationsLog.insert(migration)
       }
     }
   } finally {
-    client.end();
+    await client.end()
   }
 }
 
 async function acquireLock(client: Client) {
   // random number was chosen in range [1..max int]
   // to ensure it does not conflict with any other pg_advisory_lock
-  await client.query(`select pg_advisory_lock(961082034)`);
+  await client.query(`select pg_advisory_lock(961082034)`)
 }
 
-export function validateState(
-  diskMigrations: MigrationRecord[],
-  dbRecords: MigrationRecord[]
-): void {
-  let seqNum = 0;
+export function validateState(diskMigrations: MigrationRecord[], dbRecords: MigrationRecord[]): void {
+  let seqNum = 0
 
   for (const { name, hash } of diskMigrations) {
-    const onDb = dbRecords.find(
-      (row) => row.name.slice(0, 3) === name.slice(0, 3)
-    );
+    const onDb = dbRecords.find((row) => row.name.slice(0, 3) === name.slice(0, 3))
 
     // ensure migration name starts with NNN_
-    seqNum++;
-    const expectedPrefix = addPadding(seqNum) + "_";
+    seqNum++
+    const expectedPrefix = addPadding(seqNum) + "_"
     if (!name.startsWith(expectedPrefix)) {
-      throw new Error(
-        `migration ${name}: prefix should match sequence number of migration (${expectedPrefix})`
-      );
+      throw new Error(`migration ${name}: prefix should match sequence number of migration (${expectedPrefix})`)
     }
     if (onDb && onDb.name !== name) {
-      throw new Error(
-        `migration ${name}: name did not matched previously logged migration (${onDb.name})`
-      );
+      throw new Error(`migration ${name}: name did not matched previously logged migration (${onDb.name})`)
     }
     if (onDb && onDb.hash !== hash) {
-      throw new Error(
-        `migration ${name}: content of migration did not match previously logged migration`
-      );
+      throw new Error(`migration ${name}: content of migration did not match previously logged migration`)
     }
   }
 }
 
 function addPadding(seqNum: number) {
-  return (1000 + seqNum).toFixed().slice(1);
+  return (1000 + seqNum).toFixed().slice(1)
 }
 
 /**
@@ -102,7 +88,7 @@ class MigrationsLog {
   constructor(private client: Client, private tableName: string) {}
 
   private get tableNameSql() {
-    return sql.id(this.tableName);
+    return sql.id(this.tableName)
   }
 
   async initSchema() {
@@ -112,84 +98,81 @@ class MigrationsLog {
         hash text,
         created_at timestamp default current_timestamp
       )
-  `);
+  `)
   }
 
   async getPastMigrations(): Promise<MigrationRecord[]> {
-    const { rows } = await this.client.query(
-      sql`select name, hash from ${this.tableNameSql} order by name`
-    );
-    return rows;
+    const { rows } = await this.client.query(sql`select name, hash from ${this.tableNameSql} order by name`)
+    return rows
   }
 
   async insert(record: MigrationRecord) {
-    await this.client
-      .query(sql`insert into ${this.tableNameSql} (name, hash) values (
+    await this.client.query(sql`insert into ${this.tableNameSql} (name, hash) values (
         ${record.name},
         ${record.hash}
-      )`);
+      )`)
   }
 }
 
 interface MigrationRecord {
-  name: string;
-  hash: string;
+  name: string
+  hash: string
 }
 
 interface PgError extends Error {
-  code: string;
+  code: string
 }
 
 class DiskMigration implements MigrationRecord {
   constructor(public location: string, public name: string) {}
 
   static readFromFolder(location: string): DiskMigration[] {
-    const files = readdirSync(location).sort();
-    const migrations: DiskMigration[] = [];
+    const files = readdirSync(location).sort()
+    const migrations: DiskMigration[] = []
 
     for (const fileName of files) {
       if (/\.sql/.test(fileName)) {
-        migrations.push(new DiskMigration(location, fileName));
+        migrations.push(new DiskMigration(location, fileName))
       }
     }
 
-    return migrations;
+    return migrations
   }
 
   get hash() {
-    const hash = createHash("md5");
+    const hash = createHash("md5")
     // remove white spaces
     const cleanContent = this.content
       .split("\n")
       .map((val) => val.trim())
       .filter((row) => row)
-      .join();
-    hash.update(cleanContent);
-    return hash.digest().toString("base64");
+      .join()
+    hash.update(cleanContent)
+    return hash.digest().toString("base64")
   }
 
   get filePath(): string {
-    return joinPath(this.location, this.name);
+    return joinPath(this.location, this.name)
   }
 
   get content(): string {
-    return readFileSync(this.filePath).toString();
+    return readFileSync(this.filePath).toString()
   }
 
   async run(client: Client, logger: Logger): Promise<void> {
     for (const query of splitSqlText(this.content)) {
-      logger.info(`Running migration ${this.name}:${query.lineNo}`);
-      logger.info(`>>> ${query.text}`);
+      logger.info(`Running migration ${this.name}:${query.lineNo}`)
+      logger.info(`>>> ${query.text}`)
 
       try {
-        await client.query(query.text);
+        await client.query(query.text)
       } catch (e) {
-        throw new Error(this.formatError(this.filePath, query.lineNo, e));
+        throw new Error(this.formatError(this.filePath, query.lineNo, e))
       }
     }
   }
 
   private formatError(name: string, lineNo: number, e: PgError) {
-    return `Migration ${name}:${lineNo} failed: [code ${e.code}] ${e.message}`;
+    return `Migration ${name}:${lineNo} failed: [code ${e.code}] ${e.message}`
   }
 }
