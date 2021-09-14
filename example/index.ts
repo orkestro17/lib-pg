@@ -1,38 +1,38 @@
-import { getPgConfig, migrateSchema, PoolClient, sql } from "@orkestro17/lib-pg";
-import { Pool } from "pg";
+import { getPgConfig, migrateSchema, PoolClient, sql } from "@orkestro17/lib-pg"
+import { Pool } from "pg"
 
 async function main() {
   const clientConfig = getPgConfig(process.env, {
     database: "pg_lib_example",
-  });
-  const logger = console;
+  })
+  const logger = console
 
   // run migrations
   await migrateSchema(logger, clientConfig, {
     folderLocation: "migrations",
     tableName: "schema_migrations",
-  });
+  })
 
-  const pool = new Pool(clientConfig);
+  const pool = new Pool(clientConfig)
   try {
-    const client = new PoolClient(pool, logger);
+    const client = new PoolClient(pool, logger)
 
     // regular query
-    const results = await client.run(sql`select ${"Sample query"}`);
-    console.log("Query results: ", results);
+    const results = await client.run(sql`select ${"Sample query"}`)
+    console.log("Query results: ", results)
 
     // transaction
     await client.transaction("example", async (client) => {
-      await client.run(sql`select ${"Sample query in transaction"}`);
+      await client.run(sql`select ${"Sample query in transaction"}`)
       await client.transaction("nestedExample", async (client) => {
-        await client.run(sql`select ${"Sample query in nested transaction"}`);
-      });
-    });
+        await client.run(sql`select ${"Sample query in nested transaction"}`)
+      })
+    })
   } finally {
-    pool.end();
+    pool.end()
   }
 }
 
 if (require.main === module) {
-  main();
+  main()
 }

@@ -1,31 +1,27 @@
-import { sql } from "@orkestro17/lib-pg";
-import { TestClient, insert } from "@orkestro17/lib-pg";
-import { expect } from "chai";
+import { sql } from "@orkestro17/lib-pg"
+import { TestClient, insert } from "@orkestro17/lib-pg"
+import { expect } from "chai"
 
 describe("test example", () => {
-  const db = new TestClient();
+  const db = new TestClient()
 
   beforeEach(async () => {
-    await db.run(insert("test_record", [{ name: "Before Each" }]));
-  });
+    await db.run(insert("test_record", [{ name: "Before Each" }]))
+  })
 
   it("Test 1", async () => {
-    await db.run(insert("test_record", [{ name: "Test 1" }]));
+    await db.run(insert("test_record", [{ name: "Test 1" }]))
 
-    const result = await db.run<{ name: string }>(
-      sql`select name from test_record order by name`
-    );
+    const result = await db.run<{ name: string }>(sql`select name from test_record order by name`)
 
-    expect(result).to.eql([{ name: "Before Each" }, { name: "Test 1" }]);
-  });
+    expect(result).to.eql([{ name: "Before Each" }, { name: "Test 1" }])
+  })
 
   it("Test 2", async () => {
-    await db.run(insert("test_record", [{ name: "Test 2" }]));
+    await db.run(insert("test_record", [{ name: "Test 2" }]))
 
-    const result = await db.run<{ name: string }>(
-      sql`select name from test_record`
-    );
+    const result = await db.run<{ name: string }>(sql`select name from test_record`)
 
-    expect(result).to.eql([{ name: "Before Each" }, { name: "Test 2" }]);
-  });
-});
+    expect(result).to.eql([{ name: "Before Each" }, { name: "Test 2" }])
+  })
+})

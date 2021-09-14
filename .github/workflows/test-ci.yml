@@ -1,11 +1,10 @@
 name: Node.js Package
 
 on:
-  release:
-    types: [created]
+  push:
 
 jobs:
-  publish-gpr:
+  test:
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -18,8 +17,5 @@ jobs:
           registry-url: https://npm.pkg.github.com/
       - run: npm ci
       - run: npm run check:all
-      - run: npm run test
       - run: npm run build
-      - run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+      - run: npm run test
