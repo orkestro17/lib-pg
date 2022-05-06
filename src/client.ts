@@ -29,7 +29,7 @@ async function run<T>(queryConfig: string | QueryConfig, pgClient: pg.ClientBase
   const label = name || text.slice(0, 100) + (text.length > 100 ? "..." : "")
   const logMessage = `Query(${label}): ` + (error ? `failed (${error.code})` : `${command} ${rowCount}`)
 
-  logger.info(logMessage, { duration, queuedQueries: queuedProcessQueries })
+  logger.debug(logMessage, { duration, queuedQueries: queuedProcessQueries })
 
   if (result) {
     return result.rows
@@ -145,7 +145,7 @@ export class ActiveClient implements Client {
     const logger = new PrefixedLogger(`[txn:${transactionName}:${txnId}]`, this.logger)
     const transactionClient = new ActiveTransactionClient(pgClient, logger)
 
-    logger.info(`Starting transaction`, {
+    logger.debug(`Starting transaction`, {
       activeTransactions: activeProcessTransactions,
     })
 
@@ -155,7 +155,7 @@ export class ActiveClient implements Client {
       return await f(transactionClient)
         .then(async (result) => {
           await pgClient.query("commit")
-          logger.info(`Transaction committed`, {
+          logger.debug(`Transaction committed`, {
             duration: Date.now() - start,
           })
           return result
@@ -193,24 +193,24 @@ export class ActiveTransactionClient implements Client {
 
     const savepoint = sql.id(transactionName.toLowerCase())
 
-    this.logger.info(`Creating savepoint ${transactionName}`)
+    this.logger.debug(`Creating savepoint ${transactionName}`)
 
     await this.pgClient.query(sql`savepoint ${savepoint}`)
 
     try {
       const result = await f(this)
 
-      this.logger.info(`Releasing savepoint ${transactionName}`)
+      this.logger.debug(`Releasing savepoint ${transactionName}`)
       await this.pgClient.query(sql`release savepoint ${savepoint}`)
 
       return result
     } catch (error) {
-      this.logger.info(`Savepoint failed, rolling back ${savepoint}`, error)
+      this.logger.debug(`Savepoint failed, rolling back ${savepoint}`, error)
 
       try {
         await this.pgClient.query(sql`rollback to savepoint ${savepoint}`)
       } catch (e) {
-        this.logger.info("Failed to rollback savepoint", e, error)
+        this.logger.warn("Failed to rollback savepoint", e, error)
       }
 
       throw error
@@ -220,6 +220,10 @@ export class ActiveTransactionClient implements Client {
 
 class PrefixedLogger implements Logger {
   constructor(private prefix: string, private logger: Logger) {}
+
+  debug(message: string, ...args: unknown[]) {
+    this.logger.debug(`${this.prefix} ${message}`, ...args)
+  }
 
   info(message: string, ...args: unknown[]) {
     this.logger.info(`${this.prefix} ${message}`, ...args)
