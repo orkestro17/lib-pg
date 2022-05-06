@@ -9,6 +9,9 @@ describe("db.sql.client", () => {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const logs: (string | any)[] = []
   const logger: Logger = {
+    debug(...args: unknown[]) {
+      logs.push(replaceRandomValues(args))
+    },
     info(...args: unknown[]) {
       logs.push(replaceRandomValues(args))
     },
