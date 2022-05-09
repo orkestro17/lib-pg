@@ -8,11 +8,13 @@ import { Logger } from "./types"
 let pgSetupPromise: Promise<unknown>
 
 class NullLogger implements Logger {
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  // eslint-disable-next-line @typescript-eslint/no-empty-function, @typescript-eslint/no-unused-vars
+  debug(message: string, ...args: unknown[]): void {}
+  // eslint-disable-next-line @typescript-eslint/no-empty-function, @typescript-eslint/no-unused-vars
   info(message: string, ...args: unknown[]): void {}
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  // eslint-disable-next-line @typescript-eslint/no-empty-function, @typescript-eslint/no-unused-vars
   warn(message: string, ...args: unknown[]): void {}
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  // eslint-disable-next-line @typescript-eslint/no-empty-function, @typescript-eslint/no-unused-vars
   error(message: string, ...args: unknown[]): void {}
 }
 
