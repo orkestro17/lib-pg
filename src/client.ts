@@ -23,13 +23,14 @@ async function run<T>(queryConfig: string | QueryConfig, pgClient: pg.ClientBase
     .catch((e) => [e, null])
   queuedProcessQueries--
 
-  const { command, rowCount } = result || {}
-  const duration = Date.now() - startTime
   const { text, name = null } = typeof queryConfig === "string" ? { text: queryConfig } : queryConfig
   const label = name || text.slice(0, 100) + (text.length > 100 ? "..." : "")
-  const logMessage = `Query(${label}): ` + (error ? `failed (${error.code})` : `${command} ${rowCount}`)
 
-  logger.debug(logMessage, { duration, queuedQueries: queuedProcessQueries })
+  if (error) {
+    const duration = Date.now() - startTime
+    const logMessage = `Query(${label}): failed (${error.code})`
+    logger.error(logMessage, { duration, queuedQueries: queuedProcessQueries, error })
+  }
 
   if (result) {
     return result.rows
