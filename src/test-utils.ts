@@ -4,6 +4,7 @@ import { getPgConfig } from "./config"
 import { migrateSchema } from "./migration"
 import * as pgTypes from "./pg-types"
 import { Logger } from "./types"
+import { beforeAll, afterAll, afterEach } from "@jest/globals"
 
 let pgSetupPromise: Promise<unknown>
 
@@ -56,8 +57,8 @@ async function createDatabase() {
 }
 
 export class TestClient implements Client {
-  private pgClient: Pg.Client | null = null
-  private db: Client | null = null
+  protected pgClient: Pg.Client | null = null
+  protected db: Client | null = null
 
   constructor({ testInTransaction = true, logger = new NullLogger() } = {}) {
     before(function () {
@@ -119,5 +120,51 @@ export class TestClient implements Client {
         "TestClient.transaction() can only be used from within before(), beforeEach(), it(), afterEach(), after()"
       )
     return this.db.transaction(name, cb)
+  }
+}
+
+export class JestTestClient extends TestClient {
+  constructor({ testInTransaction = true, logger = new NullLogger() } = {}) {
+    super({ testInTransaction: false, logger }) // Desactivamos la lógica de transacción del padre
+
+    // Configuración inicial
+    beforeAll(async () => {
+      await (pgSetupPromise = pgSetupPromise || pgSetup())
+      this.pgClient = new Pg.Client()
+      await this.pgClient.connect()
+      this.db = new ActiveClient(this.pgClient, logger)
+    })
+
+    if (testInTransaction) {
+      beforeAll(async () => {
+        if (this.pgClient) {
+          await this.pgClient.query("begin transaction")
+          await this.pgClient.query("savepoint clean_state")
+          this.db = new ActiveTransactionClient(this.pgClient, logger)
+        }
+      })
+
+      afterEach(async () => {
+        if (this.pgClient) {
+          await this.pgClient.query("rollback to savepoint clean_state")
+        }
+      })
+
+      afterAll(async () => {
+        if (this.db) {
+          await this.db.run("rollback transaction")
+        }
+      })
+    }
+
+    // Limpieza final
+    afterAll(async () => {
+      if (this.pgClient) {
+        this.pgClient.removeAllListeners()
+        await this.pgClient.end()
+        this.pgClient = null
+        this.db = null
+      }
+    })
   }
 }
