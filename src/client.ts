@@ -23,33 +23,35 @@ async function run<T>(queryConfig: string | QueryConfig, pgClient: pg.ClientBase
     .catch((e) => [e, null])
   queuedProcessQueries--
 
-  const { text, name = null } = typeof queryConfig === "string" ? { text: queryConfig } : queryConfig
+  const {
+    text,
+    name = null,
+    values = [],
+  } = typeof queryConfig === "string" ? { text: queryConfig, values: [] } : queryConfig
   const label = name || text.slice(0, 100) + (text.length > 100 ? "..." : "")
+  const duration = Date.now() - startTime
 
   if (error) {
-    const duration = Date.now() - startTime
     const logMessage = `Query(${label}): failed (${error.code})`
     logger.error(logMessage, { duration, queuedQueries: queuedProcessQueries, error })
+  } else if (result) {
+    logger.debug(`Query(${label}): ${text}`, { duration, queuedQueries: queuedProcessQueries })
+    return result.rows
   }
 
-  if (result) {
-    return result.rows
+  if (
+    typeof queryConfig === "object" &&
+    queryConfig.ignoreErrorCodes &&
+    queryConfig.ignoreErrorCodes.includes(String(error.code))
+  ) {
+    return []
   } else {
-    if (
-      typeof queryConfig === "object" &&
-      queryConfig.ignoreErrorCodes &&
-      queryConfig.ignoreErrorCodes.includes(String(error.code))
-    ) {
-      return []
-    } else {
-      // reformat original error to provide additional contextual
-      // information that is helpful for debugging
-      const values = typeof queryConfig === "string" ? [] : queryConfig.values || []
-      const valuesText = values.map((val, i) => `  $${i + 1}= ${JSON.stringify(val)}`).join("\n")
-      const errorMessage = `${label} [errcode: ${error.code}] ${error.message} \nQuery: ${text} \nValues:\n${valuesText}\n${initialStack}`
+    // reformat original error to provide additional contextual
+    // information that is helpful for debugging
+    const valuesText = values.map((val, i) => `  $${i + 1}= ${JSON.stringify(val)}`).join("\n")
+    const errorMessage = `${label} [errcode: ${error.code}] ${error.message} \nQuery: ${text} \nValues:\n${valuesText}\n${initialStack}`
 
-      throw new SqlError(error.code, errorMessage)
-    }
+    throw new SqlError(error.code, errorMessage)
   }
 }
 
