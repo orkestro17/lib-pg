@@ -23,32 +23,35 @@ async function run<T>(queryConfig: string | QueryConfig, pgClient: pg.ClientBase
     .catch((e) => [e, null])
   queuedProcessQueries--
 
-  const { command, rowCount } = result || {}
-  const duration = Date.now() - startTime
-  const { text, name = null } = typeof queryConfig === "string" ? { text: queryConfig } : queryConfig
+  const {
+    text,
+    name = null,
+    values = [],
+  } = typeof queryConfig === "string" ? { text: queryConfig, values: [] } : queryConfig
   const label = name || text.slice(0, 100) + (text.length > 100 ? "..." : "")
-  const logMessage = `Query(${label}): ` + (error ? `failed (${error.code})` : `${command} ${rowCount}`)
+  const duration = Date.now() - startTime
 
-  logger.debug(logMessage, { duration, queuedQueries: queuedProcessQueries })
-
-  if (result) {
+  if (error) {
+    const logMessage = `Query(${label}): failed (${error.code})`
+    logger.error(logMessage, { duration, queuedQueries: queuedProcessQueries, error })
+  } else if (result) {
+    logger.debug(`Query(${label}): ${text}`, { duration, queuedQueries: queuedProcessQueries })
     return result.rows
-  } else {
-    if (
-      typeof queryConfig === "object" &&
-      queryConfig.ignoreErrorCodes &&
-      queryConfig.ignoreErrorCodes.includes(String(error.code))
-    ) {
-      return []
-    } else {
-      // reformat original error to provide additional contextual
-      // information that is helpful for debugging
-      const values = typeof queryConfig === "string" ? [] : queryConfig.values || []
-      const valuesText = values.map((val, i) => `  $${i + 1}= ${JSON.stringify(val)}`).join("\n")
-      const errorMessage = `${label} [errcode: ${error.code}] ${error.message} \nQuery: ${text} \nValues:\n${valuesText}\n${initialStack}`
+  }
 
-      throw new SqlError(error.code, errorMessage)
-    }
+  if (
+    typeof queryConfig === "object" &&
+    queryConfig.ignoreErrorCodes &&
+    queryConfig.ignoreErrorCodes.includes(String(error.code))
+  ) {
+    return []
+  } else {
+    // reformat original error to provide additional contextual
+    // information that is helpful for debugging
+    const valuesText = values.map((val, i) => `  $${i + 1}= ${JSON.stringify(val)}`).join("\n")
+    const errorMessage = `${label} [errcode: ${error.code}] ${error.message} \nQuery: ${text} \nValues:\n${valuesText}\n${initialStack}`
+
+    throw new SqlError(error.code, errorMessage)
   }
 }
 
