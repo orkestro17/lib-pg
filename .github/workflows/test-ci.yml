@@ -6,7 +6,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    container: node:12
+    container: node:22
     services:
       postgres:
         image: postgres:11.6-alpine

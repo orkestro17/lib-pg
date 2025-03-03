@@ -123,6 +123,10 @@ interface PgError extends Error {
   code: string
 }
 
+function isPgError(error: unknown): error is PgError {
+  return error instanceof Error && "code" in error
+}
+
 class DiskMigration implements MigrationRecord {
   constructor(public location: string, public name: string) {}
 
@@ -167,6 +171,9 @@ class DiskMigration implements MigrationRecord {
       try {
         await client.query(query.text)
       } catch (e) {
+        if (!isPgError(e)) {
+          throw e
+        }
         throw new Error(this.formatError(this.filePath, query.lineNo, e))
       }
     }
