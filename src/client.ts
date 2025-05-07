@@ -8,6 +8,10 @@ import { QueryConfig, Logger } from "./types"
 let queuedProcessQueries = 0
 let activeProcessTransactions = 0
 
+function areQueryLogsEnabled() {
+  return process.env.ENABLE_QUERY_LOGS === "true"
+}
+
 async function run<T>(queryConfig: string | QueryConfig, pgClient: pg.ClientBase, logger: Logger): Promise<T[]> {
   const { stack: initialStack } = new Error("Query failed")
 
@@ -29,27 +33,29 @@ async function run<T>(queryConfig: string | QueryConfig, pgClient: pg.ClientBase
   const label = name || text.slice(0, 100) + (text.length > 100 ? "..." : "")
   const logMessage = `Query(${label}): ` + (error ? `failed (${error.code})` : `${command} ${rowCount}`)
 
-  logger.debug(logMessage, { duration, queuedQueries: queuedProcessQueries })
+  if (areQueryLogsEnabled()) {
+    logger.debug(logMessage, { duration, queuedQueries: queuedProcessQueries })
+  }
 
   if (result) {
     return result.rows
-  } else {
-    if (
-      typeof queryConfig === "object" &&
-      queryConfig.ignoreErrorCodes &&
-      queryConfig.ignoreErrorCodes.includes(String(error.code))
-    ) {
-      return []
-    } else {
-      // reformat original error to provide additional contextual
-      // information that is helpful for debugging
-      const values = typeof queryConfig === "string" ? [] : queryConfig.values || []
-      const valuesText = values.map((val, i) => `  $${i + 1}= ${JSON.stringify(val)}`).join("\n")
-      const errorMessage = `${label} [errcode: ${error.code}] ${error.message} \nQuery: ${text} \nValues:\n${valuesText}\n${initialStack}`
-
-      throw new SqlError(error.code, errorMessage)
-    }
   }
+
+  if (
+    typeof queryConfig === "object" &&
+    queryConfig.ignoreErrorCodes &&
+    queryConfig.ignoreErrorCodes.includes(String(error.code))
+  ) {
+    return []
+  }
+
+  // reformat original error to provide additional contextual
+  // information that is helpful for debugging
+  const values = typeof queryConfig === "string" ? [] : queryConfig.values || []
+  const valuesText = values.map((val, i) => `  $${i + 1}= ${JSON.stringify(val)}`).join("\n")
+  const errorMessage = `${label} [errcode: ${error.code}] ${error.message} \nQuery: ${text} \nValues:\n${valuesText}\n${initialStack}`
+
+  throw new SqlError(error.code, errorMessage)
 }
 
 class SqlError extends Error {
@@ -145,9 +151,11 @@ export class ActiveClient implements Client {
     const logger = new PrefixedLogger(`[txn:${transactionName}:${txnId}]`, this.logger)
     const transactionClient = new ActiveTransactionClient(pgClient, logger)
 
-    logger.debug(`Starting transaction`, {
-      activeTransactions: activeProcessTransactions,
-    })
+    if (areQueryLogsEnabled()) {
+      logger.debug(`Starting transaction`, {
+        activeTransactions: activeProcessTransactions,
+      })
+    }
 
     try {
       await pgClient.query("begin")
@@ -155,9 +163,11 @@ export class ActiveClient implements Client {
       return await f(transactionClient)
         .then(async (result) => {
           await pgClient.query("commit")
-          logger.debug(`Transaction committed`, {
-            duration: Date.now() - start,
-          })
+          if (areQueryLogsEnabled()) {
+            logger.debug(`Transaction committed`, {
+              duration: Date.now() - start,
+            })
+          }
           return result
         })
         .catch(async (error) => {
@@ -190,22 +200,27 @@ export class ActiveTransactionClient implements Client {
 
   async transaction<T>(transactionName: string, f: (client: Client) => T | Promise<T>): Promise<T> {
     // support for nested transactions with save points
-
     const savepoint = sql.id(transactionName.toLowerCase())
 
-    this.logger.debug(`Creating savepoint ${transactionName}`)
+    if (areQueryLogsEnabled()) {
+      this.logger.debug(`Creating savepoint ${transactionName}`)
+    }
 
     await this.pgClient.query(sql`savepoint ${savepoint}`)
 
     try {
       const result = await f(this)
 
-      this.logger.debug(`Releasing savepoint ${transactionName}`)
+      if (areQueryLogsEnabled()) {
+        this.logger.debug(`Releasing savepoint ${transactionName}`)
+      }
       await this.pgClient.query(sql`release savepoint ${savepoint}`)
 
       return result
     } catch (error) {
-      this.logger.debug(`Savepoint failed, rolling back ${savepoint}`, error)
+      if (areQueryLogsEnabled()) {
+        this.logger.debug(`Savepoint failed, rolling back ${savepoint}`, error)
+      }
 
       try {
         await this.pgClient.query(sql`rollback to savepoint ${savepoint}`)
@@ -219,14 +234,21 @@ export class ActiveTransactionClient implements Client {
 }
 
 class PrefixedLogger implements Logger {
-  constructor(private prefix: string, private logger: Logger) {}
+  private enableQueryLogs: boolean
+  constructor(private prefix: string, private logger: Logger) {
+    this.enableQueryLogs = process.env.ENABLE_QUERY_LOGS === "true"
+  }
 
   debug(message: string, ...args: unknown[]) {
-    this.logger.debug(`${this.prefix} ${message}`, ...args)
+    if (this.enableQueryLogs) {
+      this.logger.debug(`${this.prefix} ${message}`, ...args)
+    }
   }
 
   info(message: string, ...args: unknown[]) {
-    this.logger.info(`${this.prefix} ${message}`, ...args)
+    if (this.enableQueryLogs) {
+      this.logger.info(`${this.prefix} ${message}`, ...args)
+    }
   }
 
   warn(message: string, ...args: unknown[]) {
