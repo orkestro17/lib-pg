@@ -32,7 +32,7 @@ describe("db.sql.client", () => {
   describe("run()", () => {
     it("executed query and logs duration", async () => {
       const result = await db.run(sql`select pg_sleep(0.055)`)
-      eq(logs[0][0], "Query(select pg_sleep(0.055)): SELECT 1")
+      eq(logs[0][0], "[lib-pg][debug] Query(select pg_sleep(0.055)): SELECT 1")
       eq(logs[0][1].duration >= 50, true, logs[0][1].duration)
       eq(result, [{ pg_sleep: "" }])
     })
@@ -59,10 +59,11 @@ describe("db.sql.client", () => {
       eq(
         logs.map((row) => row[0]),
         [
-          "[txn:testTransaction:<uuid>] Starting transaction",
-          "[txn:testTransaction:<uuid>] Query(select 1 as a): SELECT 1",
-          "[txn:testTransaction:<uuid>] Query(select 2 as b): SELECT 1",
-          "[txn:testTransaction:<uuid>] Transaction committed",
+          "[txn:testTransaction:<uuid>] [lib-pg][debug] Starting transaction",
+          "[txn:testTransaction:<uuid>] [lib-pg][debug] Query(select 1 as a): SELECT 1",
+          "[txn:testTransaction:<uuid>] [lib-pg][debug] Query(select 2 as b): SELECT 1",
+          "[txn:testTransaction:<uuid>] [lib-pg][debug] Transaction committed",
+          "[lib-pg][debug] checkoutClient",
         ]
       )
     })
@@ -86,14 +87,16 @@ describe("db.sql.client", () => {
       eq(
         logs.map((args) => args[0]),
         [
-          "[txn:query1:<uuid>] Starting transaction",
-          "[txn:query1:<uuid>] Query(fail): failed (42601)",
-          "[txn:query1:<uuid>] Query(select 1): failed (25P02)",
-          "[txn:query1:<uuid>] Transaction rolled back for error: ",
-          "[txn:query2:<uuid>] Starting transaction",
-          "[txn:query2:<uuid>] Query(select 1): SELECT 1",
-          "[txn:query2:<uuid>] Query(select 2): SELECT 1",
-          "[txn:query2:<uuid>] Transaction committed",
+          "[txn:query1:<uuid>] [lib-pg][debug] Starting transaction",
+          "[txn:query1:<uuid>] [lib-pg][debug] Query(fail): failed (42601)",
+          "[txn:query1:<uuid>] [lib-pg][debug] Query(select 1): failed (25P02)",
+          "[txn:query1:<uuid>] [lib-pg][debug] Transaction rolled back for error: ",
+          "[lib-pg][debug] checkoutClient",
+          "[txn:query2:<uuid>] [lib-pg][debug] Starting transaction",
+          "[txn:query2:<uuid>] [lib-pg][debug] Query(select 1): SELECT 1",
+          "[txn:query2:<uuid>] [lib-pg][debug] Query(select 2): SELECT 1",
+          "[txn:query2:<uuid>] [lib-pg][debug] Transaction committed",
+          "[lib-pg][debug] checkoutClient",
         ]
       )
     })

@@ -26,10 +26,13 @@ async function run<T>(queryConfig: string | QueryConfig, pgClient: pg.ClientBase
   const { command, rowCount } = result || {}
   const duration = Date.now() - startTime
   const { text, name = null } = typeof queryConfig === "string" ? { text: queryConfig } : queryConfig
-  const label = name || text.slice(0, 100) + (text.length > 100 ? "..." : "")
+  const label = name || text.slice(0, 1000) + (text.length > 1000 ? "..." : "")
   const logMessage = `Query(${label}): ` + (error ? `failed (${error.code})` : `${command} ${rowCount}`)
 
-  logger.debug(logMessage, { duration, queuedQueries: queuedProcessQueries })
+  // logger.debug(logMessage, { duration, queuedQueries: queuedProcessQueries })
+
+  // Just to force the log, all "[lib-pg][debug]" logs are to be removed after debugging
+  logger.info(`[lib-pg][debug] ${logMessage}`, { duration, queuedQueries: queuedProcessQueries })
 
   if (result) {
     return result.rows
@@ -111,13 +114,35 @@ export class PoolClient implements Client {
   }
 
   private async checkoutClient<T = unknown>(f: (c: Client) => Promise<T>): Promise<T> {
+    const startTimeConnect = Date.now()
     const pgClient = await this.pool.connect()
+    const durationConnect = Date.now() - startTimeConnect
+
+    let durationRun = 0
+    let durationRelease = 0
+
     const client = new ActiveClient(pgClient, this.logger)
 
     try {
-      return await f(client)
+      const startTimeRun = Date.now()
+      const result = await f(client)
+      durationRun = Date.now() - startTimeRun
+      return result
     } finally {
+      const startTimeRelease = Date.now()
       pgClient.release()
+      durationRelease = Date.now() - startTimeRelease
+
+      this.logger.info("[lib-pg][debug] checkoutClient", {
+        durationConnect,
+        durationRun,
+        durationRelease,
+        poolInfo: {
+          totalCount: this.pool.totalCount,
+          idleCount: this.pool.idleCount,
+          waitingCount: this.pool.waitingCount,
+        },
+      })
     }
   }
 
@@ -145,7 +170,7 @@ export class ActiveClient implements Client {
     const logger = new PrefixedLogger(`[txn:${transactionName}:${txnId}]`, this.logger)
     const transactionClient = new ActiveTransactionClient(pgClient, logger)
 
-    logger.debug(`Starting transaction`, {
+    logger.info(`[lib-pg][debug] Starting transaction`, {
       activeTransactions: activeProcessTransactions,
     })
 
@@ -155,7 +180,7 @@ export class ActiveClient implements Client {
       return await f(transactionClient)
         .then(async (result) => {
           await pgClient.query("commit")
-          logger.debug(`Transaction committed`, {
+          logger.info(`[lib-pg][debug] Transaction committed`, {
             duration: Date.now() - start,
           })
           return result
@@ -163,9 +188,9 @@ export class ActiveClient implements Client {
         .catch(async (error) => {
           try {
             await pgClient.query("rollback")
-            logger.info("Transaction rolled back for error: ", error)
+            logger.info("[lib-pg][debug] Transaction rolled back for error: ", error)
           } catch (e) {
-            logger.warn("Failed to rollback transaction", error, e)
+            logger.warn("[lib-pg][debug] Failed to rollback transaction", error, e)
           }
           throw error
         })
